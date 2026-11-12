@@ -2,6 +2,8 @@ using UnityEngine;
 
 namespace JunkyWizard.Prototype
 {
+    public enum GameplayMode { Lanes, Grid }
+
     /// <summary>All tunable numbers of the grey-box prototype.</summary>
     [CreateAssetMenu(menuName = "Junky Wizard/Prototype Config", fileName = "PrototypeConfig")]
     public class PrototypeConfig : ScriptableObject
@@ -50,7 +52,62 @@ namespace JunkyWizard.Prototype
         public string healWord = "heal";
         public string aegisWord = "aegis";
 
+        [Header("Mode (applied on round restart)")]
+        public GameplayMode gameplayMode = GameplayMode.Grid;
+
+        [Header("Grid")]
+        [Tooltip("Rows of depth. Row 0 is the wizard row; enemies spawn up to row gridRows.")]
+        [Range(8, 20)] public int gridRows = 12;
+        public float rowSpacing = 2f;
+        [Tooltip("Very faint debug lines for columns and rows.")]
+        public bool showGridGuides = false;
+
+        [Header("Grid enemies: spawn")]
+        public float spawnWeightBack = 50f;
+        public float spawnWeightSide = 50f;
+        [Tooltip("Side spawns pick a random row between this and gridRows.")]
+        public int sideSpawnMinRow = 4;
+        [Tooltip("Visual x of side spawns, outside the grid.")]
+        public float sideSpawnX = 6f;
+
+        [Header("Grid enemies: movement patterns (weights)")]
+        public float patternWeightStraight = 1f;
+        public float patternWeightZigZag = 1f;
+        public float patternWeightLateral = 1f;
+
+        [Header("Grid enemies: hitbox and visual motion")]
+        public float enemyHitRadius = 1f;
+        [Tooltip("Cell-to-cell interpolation over one beat (x = beat fraction, y = progress). Overshoot above 1 is allowed.")]
+        public AnimationCurve moveCurve = new AnimationCurve(
+            new Keyframe(0f, 0f, 0f, 2.2f),
+            new Keyframe(0.6f, 1.12f, 0f, 0f),
+            new Keyframe(1f, 1f, 0f, 0f));
+        public float wobbleAmplitude = 0.4f;
+        [Tooltip("Lateral sine oscillation, in cycles per beat.")]
+        public float wobbleFrequency = 0.5f;
+
+        [Header("Wand")]
+        [Tooltip("Max yaw from forward, both sides (degrees).")]
+        public float wandMaxAngle = 60f;
+        [Tooltip("Degrees per second when an arrow is first held.")]
+        public float wandStartSpeed = 15f;
+        [Tooltip("Degrees per second cap.")]
+        public float wandMaxSpeed = 180f;
+        [Tooltip("Seconds of holding needed to reach wandMaxSpeed (wandAccel is derived from this).")]
+        public float wandTimeToMaxSpeed = 0.6f;
+
+        [Header("Pyro jet (Grid)")]
+        public float pyroWidth = 1.5f;
+        public float pyroDurationBeats = 2f;
+        [Tooltip("Scales both width and duration.")]
+        public float pyroMultiplierPerfect = 1f;
+        public float pyroMultiplierGood = 0.6f;
+        public float pyroMultiplierMiss = 0.3f;
+
         public int LaneCount => laneX.Length;
+
+        /// <summary>Exponent of speed = min(max, start * exp(accel * holdTime)), so that max is reached at wandTimeToMaxSpeed.</summary>
+        public float WandAccel => Mathf.Log(wandMaxSpeed / wandStartSpeed) / Mathf.Max(0.01f, wandTimeToMaxSpeed);
 
         /// <summary>Spell words indexed by <see cref="Spell"/>.</summary>
         public string[] SpellWords => new[] { pyroWord, healWord, aegisWord };

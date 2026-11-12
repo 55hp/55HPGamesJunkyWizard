@@ -38,3 +38,59 @@ MonoBehaviour:
   pyroWord: pyro
   healWord: heal
   aegisWord: aegis
+  gameplayMode: 1
+  gridRows: 12
+  rowSpacing: 2
+  showGridGuides: 0
+  spawnWeightBack: 50
+  spawnWeightSide: 50
+  sideSpawnMinRow: 4
+  sideSpawnX: 6
+  patternWeightStraight: 1
+  patternWeightZigZag: 1
+  patternWeightLateral: 1
+  enemyHitRadius: 1
+  moveCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 2.2
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    - serializedVersion: 3
+      time: 0.6
+      value: 1.12
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  wobbleAmplitude: 0.4
+  wobbleFrequency: 0.5
+  wandMaxAngle: 60
+  wandStartSpeed: 15
+  wandMaxSpeed: 180
+  wandTimeToMaxSpeed: 0.6
+  pyroWidth: 1.5
+  pyroDurationBeats: 2
+  pyroMultiplierPerfect: 1
+  pyroMultiplierGood: 0.6
+  pyroMultiplierMiss: 0.3
