@@ -26,6 +26,8 @@ namespace JunkyWizard.Prototype
         InputAction enterAction;
         InputAction leftAction;
         InputAction rightAction;
+        InputAction upAction;
+        InputAction downAction;
         InputAction tabAction;
         Keyboard textKeyboard;
 
@@ -85,6 +87,8 @@ namespace JunkyWizard.Prototype
             enterAction.AddBinding("<Keyboard>/numpadEnter");
             leftAction = CreateAction("Left", "<Keyboard>/leftArrow", ctx => OnArrow(ctx, -1));
             rightAction = CreateAction("Right", "<Keyboard>/rightArrow", ctx => OnArrow(ctx, +1));
+            upAction = CreateAction("Up", "<Keyboard>/upArrow", ctx => OnPageKey(ctx, -1));
+            downAction = CreateAction("Down", "<Keyboard>/downArrow", ctx => OnPageKey(ctx, +1));
             tabAction = CreateAction("Tab", "<Keyboard>/tab", _ => manualOpen = !manualOpen);
         }
 
@@ -99,6 +103,8 @@ namespace JunkyWizard.Prototype
             enterAction.Enable();
             leftAction.Enable();
             rightAction.Enable();
+            upAction.Enable();
+            downAction.Enable();
             tabAction.Enable();
 
             BindTextKeyboard();
@@ -112,6 +118,8 @@ namespace JunkyWizard.Prototype
             enterAction.Disable();
             leftAction.Disable();
             rightAction.Disable();
+            upAction.Disable();
+            downAction.Disable();
             tabAction.Disable();
 
             UnbindTextKeyboard();
@@ -123,6 +131,8 @@ namespace JunkyWizard.Prototype
             enterAction.Dispose();
             leftAction.Dispose();
             rightAction.Dispose();
+            upAction.Dispose();
+            downAction.Dispose();
             tabAction.Dispose();
         }
 
@@ -178,17 +188,31 @@ namespace JunkyWizard.Prototype
             Cast((Spell)spell, judgement, dsp);
         }
 
+        /// <summary>Left/right: lane or page in Lanes mode; no discrete function in Grid (they drive the wand in UpdateGrid).</summary>
         void OnArrow(InputAction.CallbackContext ctx, int direction)
         {
+            if (mode == GameplayMode.Grid) return;
+
             if (!manualOpen)
             {
-                // Grid mode: the wand is driven by held arrows in UpdateGrid.
-                if (mode == GameplayMode.Lanes)
-                    selectedLane = Mathf.Clamp(selectedLane + direction, 0, config.LaneCount - 1);
+                selectedLane = Mathf.Clamp(selectedLane + direction, 0, config.LaneCount - 1);
                 return;
             }
 
-            var judgement = Judge(clock.InputTimeToDsp(ctx.time), direction < 0 ? "Page ←" : "Page →");
+            TurnPage(ctx, direction, direction < 0 ? "Page ←" : "Page →");
+        }
+
+        /// <summary>Up/down: previous/next page, Grid mode with the manual open only.</summary>
+        void OnPageKey(InputAction.CallbackContext ctx, int direction)
+        {
+            if (mode != GameplayMode.Grid || !manualOpen) return;
+            TurnPage(ctx, direction, direction < 0 ? "Page ↑" : "Page ↓");
+        }
+
+        /// <summary>Turns the page only on a Perfect or Good input; pages are not cyclic.</summary>
+        void TurnPage(InputAction.CallbackContext ctx, int direction, string label)
+        {
+            var judgement = Judge(clock.InputTimeToDsp(ctx.time), label);
             if (judgement != Judgement.Miss)
                 manualPage = Mathf.Clamp(manualPage + direction, 0, hud.PageCount - 1);
         }
@@ -272,9 +296,8 @@ namespace JunkyWizard.Prototype
         /// <summary>Grid mode per-frame: wand from held arrows, enemy visuals, pyro jet hits.</summary>
         void UpdateGrid(double visualBeat)
         {
-            int direction = 0;
-            if (!manualOpen)
-                direction = (rightAction.IsPressed() ? 1 : 0) - (leftAction.IsPressed() ? 1 : 0);
+            // Always free: also with the manual or the typing buffer open.
+            int direction = (rightAction.IsPressed() ? 1 : 0) - (leftAction.IsPressed() ? 1 : 0);
             wand.Update(direction, Time.deltaTime);
             world.SetWand(wand.Angle);
 

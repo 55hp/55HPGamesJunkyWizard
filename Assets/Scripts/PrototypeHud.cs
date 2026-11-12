@@ -23,6 +23,7 @@ namespace JunkyWizard.Prototype
         Image[] laneCells;
         Text laneLabel;
         Text controlsText;
+        Text manualHint;
         Text bufferText;
         RectTransform manualPanel;
         Vector2 manualBasePosition;
@@ -93,8 +94,8 @@ namespace JunkyWizard.Prototype
                 TextAnchor.MiddleCenter);
             manualDescription = CreateText("Description", manualPanel, new Vector2(0.5f, 0.5f), new Vector2(0f, -40f),
                 new Vector2(440f, 80f), 26, TextAnchor.MiddleCenter);
-            CreateText("Hint", manualPanel, new Vector2(0.5f, 0f), new Vector2(0f, 30f), new Vector2(460f, 30f), 18,
-                TextAnchor.MiddleCenter).text = "← / → a tempo per girare pagina";
+            manualHint = CreateText("Hint", manualPanel, new Vector2(0.5f, 0f), new Vector2(0f, 30f), new Vector2(460f, 30f), 18,
+                TextAnchor.MiddleCenter);
             manualPanel.gameObject.SetActive(false);
         }
 
@@ -106,8 +107,9 @@ namespace JunkyWizard.Prototype
             foreach (var cell in laneCells) cell.gameObject.SetActive(lanes);
 
             controlsText.text = "Spazio: apri magia  ·  lettere  ·  Invio: lancia\n"
-                + (lanes ? "←/→: corsia (manuale chiuso)" : "←/→ tenute: ruota bacchetta (manuale chiuso)")
-                + "\nTab: manuale  ·  ←/→ a tempo: pagina";
+                + (lanes ? "←/→: corsia (manuale chiuso)" : "←/→ tenute: ruota bacchetta (sempre)")
+                + (lanes ? "\nTab: manuale  ·  ←/→ a tempo: pagina" : "\nTab: manuale  ·  ↑/↓ a tempo: pagina");
+            manualHint.text = lanes ? "← / → a tempo per girare pagina" : "↑ / ↓ a tempo per girare pagina";
             spellDescriptions = descriptions;
         }
 
