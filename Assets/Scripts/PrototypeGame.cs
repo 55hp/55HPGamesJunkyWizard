@@ -38,7 +38,28 @@ namespace JunkyWizard.Prototype
         GameObject[] enemyViews;
         int[] enemyHitBeats;
 
+        GameplayMode mode;
+        GridEnemyField gridEnemies;
+        WandAim wand;
+        double jetUntilBeat;
+        float jetWidth;
+
+        static readonly string[] LanesDescriptions =
+        {
+            "colpisce il nemico nella corsia selezionata",
+            "ripristina vite (di più se lanciata a tempo)",
+            "scudo che assorbe il prossimo colpo (dura di più se lanciato a tempo)",
+        };
+
+        static readonly string[] GridDescriptions =
+        {
+            "getto di fiamma lungo la bacchetta (più largo e lungo se lanciato a tempo)",
+            LanesDescriptions[1],
+            LanesDescriptions[2],
+        };
+
         bool ShieldActive => clock.BeatPosition < shieldUntilBeat;
+        bool JetActive => clock.BeatPosition < jetUntilBeat;
 
         void Awake()
         {
@@ -51,16 +72,13 @@ namespace JunkyWizard.Prototype
             world.Build(config);
 
             hud = gameObject.AddComponent<PrototypeHud>();
-            hud.Build(config.SpellWords, new[]
-            {
-                "colpisce il nemico nella corsia selezionata",
-                "ripristina vite (di più se lanciata a tempo)",
-                "scudo che assorbe il prossimo colpo (dura di più se lanciato a tempo)",
-            }, config.maxLives, config.LaneCount);
+            hud.Build(config.SpellWords, LanesDescriptions, config.maxLives, config.LaneCount);
 
             typer = new SpellTyper(config.SpellWords);
             enemyViews = new GameObject[config.LaneCount];
             enemyHitBeats = new int[config.LaneCount];
+            gridEnemies = new GridEnemyField(config, world);
+            wand = new WandAim(config);
 
             spaceAction = CreateAction("Space", "<Keyboard>/space", _ => typer.Open());
             enterAction = CreateAction("Enter", "<Keyboard>/enter", OnEnter);
@@ -114,6 +132,7 @@ namespace JunkyWizard.Prototype
             if (Keyboard.current != textKeyboard) BindTextKeyboard();
 
             double visualBeat = clock.VisualBeatPosition;
+            if (mode == GameplayMode.Grid) UpdateGrid(visualBeat);
             world.Tick(selectedLane, manualOpen, ShieldActive, visualBeat, enemyViews);
             hud.Tick(visualBeat, lives, selectedLane, manualOpen, manualOpen, manualPage, typer.IsOpen, typer.Buffer);
         }
@@ -163,7 +182,9 @@ namespace JunkyWizard.Prototype
         {
             if (!manualOpen)
             {
-                selectedLane = Mathf.Clamp(selectedLane + direction, 0, config.LaneCount - 1);
+                // Grid mode: the wand is driven by held arrows in UpdateGrid.
+                if (mode == GameplayMode.Lanes)
+                    selectedLane = Mathf.Clamp(selectedLane + direction, 0, config.LaneCount - 1);
                 return;
             }
 
@@ -186,6 +207,15 @@ namespace JunkyWizard.Prototype
         {
             switch (spell)
             {
+                case Spell.Pyro when mode == GameplayMode.Grid:
+                    // Judgement scales width and duration. Not stackable: a recast replaces the running jet.
+                    float multiplier = judgement == Judgement.Perfect ? config.pyroMultiplierPerfect
+                        : judgement == Judgement.Good ? config.pyroMultiplierGood
+                        : config.pyroMultiplierMiss;
+                    jetWidth = config.pyroWidth * multiplier;
+                    jetUntilBeat = clock.BeatAt(dsp) + config.pyroDurationBeats * multiplier;
+                    break;
+
                 case Spell.Pyro:
                     // Any judgement kills; an empty lane means the shot is wasted.
                     var target = enemyViews[selectedLane];
@@ -215,20 +245,45 @@ namespace JunkyWizard.Prototype
 
         void HandleBeat(int beat)
         {
-            for (int lane = 0; lane < enemyViews.Length; lane++)
+            if (mode == GameplayMode.Grid)
             {
-                if (enemyViews[lane] == null || beat < enemyHitBeats[lane]) continue;
+                if (gridEnemies.OnBeat(beat, enemy => ResolveStrike(enemy, beat))) return; // round restarted
+            }
+            else
+            {
+                for (int lane = 0; lane < enemyViews.Length; lane++)
+                {
+                    if (enemyViews[lane] == null || beat < enemyHitBeats[lane]) continue;
 
-                var enemy = enemyViews[lane];
-                enemyViews[lane] = null;
-                if (ResolveStrike(enemy, beat)) return; // round restarted
+                    var enemy = enemyViews[lane];
+                    enemyViews[lane] = null;
+                    if (ResolveStrike(enemy, beat)) return; // round restarted
+                }
             }
 
             if (beat >= nextSpawnBeat)
             {
-                TrySpawnEnemy(beat);
+                if (mode == GameplayMode.Grid) gridEnemies.TrySpawn(beat);
+                else TrySpawnEnemy(beat);
                 nextSpawnBeat = beat + SpawnIntervalAt(beat);
             }
+        }
+
+        /// <summary>Grid mode per-frame: wand from held arrows, enemy visuals, pyro jet hits.</summary>
+        void UpdateGrid(double visualBeat)
+        {
+            int direction = 0;
+            if (!manualOpen)
+                direction = (rightAction.IsPressed() ? 1 : 0) - (leftAction.IsPressed() ? 1 : 0);
+            wand.Update(direction, Time.deltaTime);
+            world.SetWand(wand.Angle);
+
+            gridEnemies.Tick(visualBeat);
+
+            bool jetActive = JetActive;
+            world.SetJet(jetActive, jetWidth);
+            if (jetActive)
+                gridEnemies.KillInJet(world.WandTip, world.WandDirection, world.JetLength, jetWidth * 0.5f);
         }
 
         /// <returns>True if the strike killed the wizard and the round restarted.</returns>
@@ -278,8 +333,14 @@ namespace JunkyWizard.Prototype
 
         void RestartRound()
         {
+            mode = config.gameplayMode;
             world.Clear();
+            world.SetMode(mode);
+            hud.SetMode(mode, mode == GameplayMode.Grid ? GridDescriptions : LanesDescriptions);
             Array.Clear(enemyViews, 0, enemyViews.Length);
+            gridEnemies.Clear();
+            wand.Reset();
+            jetUntilBeat = double.NegativeInfinity;
             lives = Mathf.Min(config.startLives, config.maxLives);
             selectedLane = config.LaneCount / 2;
             shieldUntilBeat = double.NegativeInfinity;
