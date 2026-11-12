@@ -17,8 +17,25 @@ namespace JunkyWizard.Prototype
 
         const float ProjectileTravelTime = 0.12f;
 
+        static readonly Color GroundColor = new Color(0.4f, 0.4f, 0.42f);
+        static readonly Color GuideColor = new Color(0.44f, 0.44f, 0.47f);
+        static readonly Color ArmColor = new Color(0.6f, 0.62f, 0.7f);
+        static readonly Color WandColor = new Color(0.45f, 0.3f, 0.15f);
+        static readonly Color AimLineColor = new Color(1f, 0.85f, 0.3f);
+        static readonly Color JetColor = new Color(1f, 0.5f, 0.05f, 0.45f);
+
+        static readonly Vector3 ShoulderPosition = new Vector3(0.45f, 1.5f, 0f);
+        const float WandReach = 1.5f; // shoulder to wand tip
+
         PrototypeConfig config;
         Transform transientRoot;
+        Transform ground;
+        Transform lanesRoot;
+        Transform gridRoot;
+        Transform guidesRoot;
+        Transform wandPivot;
+        Transform aimLine;
+        Transform jet;
         Renderer wizardRenderer;
         Renderer[] lanePads;
         GameObject shield;
@@ -31,10 +48,7 @@ namespace JunkyWizard.Prototype
         {
             config = cfg;
 
-            var ground = CreatePrimitive(PrimitiveType.Cube, "Ground", transform, new Color(0.4f, 0.4f, 0.42f));
-
-            ground.transform.localScale = new Vector3(14f, 0.1f, 24f);
-            ground.transform.position = new Vector3(0f, -0.05f, 8f);
+            ground = CreatePrimitive(PrimitiveType.Cube, "Ground", transform, GroundColor).transform;
 
             var wizard = CreatePrimitive(PrimitiveType.Capsule, "Wizard", transform, WizardColor);
             wizard.transform.position = WizardPosition;
@@ -44,15 +58,21 @@ namespace JunkyWizard.Prototype
             shield.transform.localScale = Vector3.one * 2.6f;
             shield.SetActive(false);
 
+            lanesRoot = new GameObject("Lanes").transform;
+            lanesRoot.SetParent(transform, false);
+            gridRoot = new GameObject("Grid").transform;
+            gridRoot.SetParent(transform, false);
+            BuildWand();
+
             lanePads = new Renderer[config.LaneCount];
             for (int i = 0; i < config.LaneCount; i++)
             {
-                var pad = CreatePrimitive(PrimitiveType.Cube, $"LanePad{i}", transform, PadColor);
+                var pad = CreatePrimitive(PrimitiveType.Cube, $"LanePad{i}", lanesRoot, PadColor);
                 pad.transform.position = LanePosition(i);
                 pad.transform.localScale = new Vector3(2.2f, 0.12f, 2.2f);
                 lanePads[i] = pad.GetComponent<Renderer>();
 
-                var strip = CreatePrimitive(PrimitiveType.Cube, $"LaneStrip{i}", transform, PadColor);
+                var strip = CreatePrimitive(PrimitiveType.Cube, $"LaneStrip{i}", lanesRoot, PadColor);
                 strip.transform.position = new Vector3(config.laneX[i], 0.01f, config.laneDistance * 0.5f + 0.5f);
                 strip.transform.localScale = new Vector3(0.08f, 0.02f, config.laneDistance - 2f);
             }
@@ -80,6 +100,123 @@ namespace JunkyWizard.Prototype
             enemy.GetComponent<Renderer>().material.color = EnemyWarningColor;
             return enemy;
         }
+
+        /// <summary>Shows the objects of <paramref name="mode"/> and sizes ground and guides (called on round restart).</summary>
+        public void SetMode(GameplayMode mode)
+        {
+            bool grid = mode == GameplayMode.Grid;
+            lanesRoot.gameObject.SetActive(!grid);
+            gridRoot.gameObject.SetActive(grid);
+
+            float depth = grid ? GridDepth : config.laneDistance;
+            ground.localScale = new Vector3(16f, 0.1f, depth + 10f);
+            ground.position = new Vector3(0f, -0.05f, depth * 0.5f + 1f);
+
+            if (guidesRoot) Destroy(guidesRoot.gameObject);
+            guidesRoot = null;
+            if (grid && config.showGridGuides) BuildGridGuides();
+
+            SetWand(0f);
+            SetJet(false, 0f);
+        }
+
+        // ---------------------------------------------------------------- grid mode
+
+        /// <summary>Depth of the last grid row (m).</summary>
+        public float GridDepth => config.gridRows * config.rowSpacing;
+
+        public Vector3 WandTip => wandPivot.position + wandPivot.forward * WandReach;
+        public Vector3 WandDirection => wandPivot.forward;
+
+        /// <summary>Jet length from the wand tip so that it covers the whole grid depth at the current angle.</summary>
+        public float JetLength
+        {
+            get
+            {
+                float depth = GridDepth + config.rowSpacing * 0.5f - WandTip.z;
+                return depth / Mathf.Max(0.1f, WandDirection.z);
+            }
+        }
+
+        public GameObject SpawnGridEnemy(Vector3 position)
+        {
+            var enemy = CreatePrimitive(PrimitiveType.Cube, "GridEnemy", transientRoot, Color.gray);
+            enemy.transform.position = position;
+            enemy.transform.localScale = Vector3.one * 1.4f;
+            return enemy;
+        }
+
+        public void KillEnemy(GameObject enemy)
+        {
+            if (!enemy) return;
+            StartCoroutine(Burst(enemy.transform.position, PyroColor, 1.4f, 3f, 0.2f));
+            Destroy(enemy);
+        }
+
+        public void SetWand(float angle)
+        {
+            wandPivot.localRotation = Quaternion.Euler(0f, angle, 0f);
+
+            const float aimLength = 60f; // long enough to leave the grid at any angle
+            var start = WandTip;
+            start.y = 0.03f;
+            aimLine.position = start + WandDirection * (aimLength * 0.5f);
+            aimLine.rotation = wandPivot.rotation;
+            aimLine.localScale = new Vector3(0.06f, 0.02f, aimLength);
+        }
+
+        public void SetJet(bool active, float width)
+        {
+            jet.gameObject.SetActive(active);
+            if (!active) return;
+
+            float length = JetLength;
+            jet.position = WandTip + WandDirection * (length * 0.5f);
+            jet.rotation = wandPivot.rotation;
+            jet.localScale = new Vector3(width, 0.6f, length);
+        }
+
+        void BuildWand()
+        {
+            wandPivot = new GameObject("WandPivot").transform;
+            wandPivot.SetParent(gridRoot, false);
+            wandPivot.position = ShoulderPosition;
+
+            var arm = CreatePrimitive(PrimitiveType.Cube, "Arm", wandPivot, ArmColor);
+            arm.transform.localPosition = new Vector3(0f, 0f, 0.45f);
+            arm.transform.localScale = new Vector3(0.18f, 0.18f, 0.9f);
+
+            var wand = CreatePrimitive(PrimitiveType.Cube, "Wand", wandPivot, WandColor);
+            wand.transform.localPosition = new Vector3(0f, 0f, 0.9f + (WandReach - 0.9f) * 0.5f);
+            wand.transform.localScale = new Vector3(0.07f, 0.07f, WandReach - 0.9f);
+
+            aimLine = CreatePrimitive(PrimitiveType.Cube, "AimLine", gridRoot, AimLineColor).transform;
+            jet = CreatePrimitive(PrimitiveType.Cube, "PyroJet", gridRoot, JetColor, transparent: true).transform;
+        }
+
+        void BuildGridGuides()
+        {
+            guidesRoot = new GameObject("GridGuides").transform;
+            guidesRoot.SetParent(gridRoot, false);
+
+            float depth = GridDepth;
+            foreach (float x in config.laneX)
+            {
+                var line = CreatePrimitive(PrimitiveType.Cube, "GuideColumn", guidesRoot, GuideColor);
+                line.transform.position = new Vector3(x, 0.01f, depth * 0.5f);
+                line.transform.localScale = new Vector3(0.04f, 0.01f, depth);
+            }
+
+            float minX = config.laneX[0], maxX = config.laneX[config.LaneCount - 1];
+            for (int row = 0; row <= config.gridRows; row++)
+            {
+                var line = CreatePrimitive(PrimitiveType.Cube, "GuideRow", guidesRoot, GuideColor);
+                line.transform.position = new Vector3((minX + maxX) * 0.5f, 0.01f, row * config.rowSpacing);
+                line.transform.localScale = new Vector3(maxX - minX, 0.01f, 0.04f);
+            }
+        }
+
+        // ---------------------------------------------------------------- lanes mode and shared feedback
 
         /// <summary>Fires a projectile at the lane; destroys <paramref name="target"/> on arrival (may be null).</summary>
         public void FirePyro(int lane, GameObject target)

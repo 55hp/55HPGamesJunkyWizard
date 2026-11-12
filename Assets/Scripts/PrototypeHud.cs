@@ -22,6 +22,7 @@ namespace JunkyWizard.Prototype
         Image[] lifeCells;
         Image[] laneCells;
         Text laneLabel;
+        Text controlsText;
         Text bufferText;
         RectTransform manualPanel;
         Vector2 manualBasePosition;
@@ -78,9 +79,8 @@ namespace JunkyWizard.Prototype
                     new Vector2((i - (laneCount - 1) * 0.5f) * 80f, -85f), new Vector2(64f, 26f), LaneOff, null);
 
             // Controls reminder (bottom left).
-            CreateText("Controls", root, new Vector2(0f, 0f), new Vector2(260f, 70f), new Vector2(480f, 110f), 20,
-                TextAnchor.LowerLeft).text =
-                "Spazio: apri magia  ·  lettere  ·  Invio: lancia\n←/→: corsia (manuale chiuso)\nTab: manuale  ·  ←/→ a tempo: pagina";
+            controlsText = CreateText("Controls", root, new Vector2(0f, 0f), new Vector2(260f, 70f), new Vector2(480f, 110f), 20,
+                TextAnchor.LowerLeft);
 
             // Manual panel (right side).
             var panelImage = CreateImage("Manual", root, new Vector2(1f, 0.5f), new Vector2(-300f, 0f), new Vector2(500f, 320f),
@@ -96,6 +96,19 @@ namespace JunkyWizard.Prototype
             CreateText("Hint", manualPanel, new Vector2(0.5f, 0f), new Vector2(0f, 30f), new Vector2(460f, 30f), 18,
                 TextAnchor.MiddleCenter).text = "← / → a tempo per girare pagina";
             manualPanel.gameObject.SetActive(false);
+        }
+
+        /// <summary>Mode-specific HUD: lane indicator only in Lanes, controls reminder and manual texts.</summary>
+        public void SetMode(GameplayMode mode, string[] descriptions)
+        {
+            bool lanes = mode == GameplayMode.Lanes;
+            laneLabel.gameObject.SetActive(lanes);
+            foreach (var cell in laneCells) cell.gameObject.SetActive(lanes);
+
+            controlsText.text = "Spazio: apri magia  ·  lettere  ·  Invio: lancia\n"
+                + (lanes ? "←/→: corsia (manuale chiuso)" : "←/→ tenute: ruota bacchetta (manuale chiuso)")
+                + "\nTab: manuale  ·  ←/→ a tempo: pagina";
+            spellDescriptions = descriptions;
         }
 
         public void Tick(double beatPosition, int lives, int selectedLane, bool laneLocked,
