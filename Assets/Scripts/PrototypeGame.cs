@@ -14,6 +14,8 @@ namespace JunkyWizard.Prototype
         [SerializeField] AudioClip music = null;
         [Tooltip("Log every judged input (Enter, arrows with manual open) to the Console.")]
         [SerializeField] bool logJudgements = true;
+        [Tooltip("Diagnostics: log every key received by the prototype to the Console.")]
+        [SerializeField] bool logInput = true;
 
         BeatClock clock;
         PrototypeWorld world;
@@ -81,8 +83,9 @@ namespace JunkyWizard.Prototype
             rightAction.Enable();
             tabAction.Enable();
 
-            textKeyboard = Keyboard.current;
-            if (textKeyboard != null) textKeyboard.onTextInput += OnTextInput;
+            BindTextKeyboard();
+            if (logInput)
+                Debug.Log($"[Input] Keyboard: {(Keyboard.current != null ? Keyboard.current.displayName : "NONE")}, devices: {InputSystem.devices.Count}");
         }
 
         void OnDisable()
@@ -93,8 +96,7 @@ namespace JunkyWizard.Prototype
             rightAction.Disable();
             tabAction.Disable();
 
-            if (textKeyboard != null) textKeyboard.onTextInput -= OnTextInput;
-            textKeyboard = null;
+            UnbindTextKeyboard();
         }
 
         void OnDestroy()
@@ -108,21 +110,42 @@ namespace JunkyWizard.Prototype
 
         void Update()
         {
+            // Keyboard.current can be null in OnEnable or change at runtime: keep onTextInput bound to it.
+            if (Keyboard.current != textKeyboard) BindTextKeyboard();
+
             double visualBeat = clock.VisualBeatPosition;
             world.Tick(selectedLane, manualOpen, ShieldActive, visualBeat, enemyViews);
             hud.Tick(visualBeat, lives, selectedLane, manualOpen, manualOpen, manualPage, typer.IsOpen, typer.Buffer);
         }
 
-        static InputAction CreateAction(string name, string binding, Action<InputAction.CallbackContext> onPerformed)
+        InputAction CreateAction(string name, string binding, Action<InputAction.CallbackContext> onPerformed)
         {
             var action = new InputAction(name, InputActionType.Button, binding);
+            action.performed += ctx => { if (logInput) Debug.Log($"[Input] {name} (t={ctx.time:0.000})"); };
             action.performed += onPerformed;
             return action;
         }
 
         // ---------------------------------------------------------------- input
 
-        void OnTextInput(char c) => typer.Type(c);
+        void BindTextKeyboard()
+        {
+            UnbindTextKeyboard();
+            textKeyboard = Keyboard.current;
+            if (textKeyboard != null) textKeyboard.onTextInput += OnTextInput;
+        }
+
+        void UnbindTextKeyboard()
+        {
+            if (textKeyboard != null) textKeyboard.onTextInput -= OnTextInput;
+            textKeyboard = null;
+        }
+
+        void OnTextInput(char c)
+        {
+            if (logInput && !char.IsControl(c)) Debug.Log($"[Input] text '{c}'");
+            typer.Type(c);
+        }
 
         void OnEnter(InputAction.CallbackContext ctx)
         {
