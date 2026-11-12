@@ -1,0 +1,40 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f3c684876561405391211aa5c1f695ff, type: 3}
+  m_Name: PrototypeConfig
+  m_EditorClassIdentifier: 
+  bpm: 123
+  firstBeatOffset: 0.272
+  scheduleLeadTime: 0.5
+  perfectWindow: 0.045
+  goodWindow: 0.09
+  maxLives: 5
+  startLives: 5
+  healPerfect: 2
+  healGood: 1
+  healMiss: 1
+  aegisBeatsPerfect: 16
+  aegisBeatsGood: 10
+  aegisBeatsMiss: 4
+  enemyWarningBeats: 4
+  firstSpawnBeat: 8
+  spawnIntervalStartBeats: 16
+  spawnIntervalEndBeats: 4
+  spawnRampSeconds: 180
+  laneX:
+  - -3
+  - 0
+  - 3
+  laneDistance: 15
+  pyroWord: pyro
+  healWord: heal
+  aegisWord: aegis
