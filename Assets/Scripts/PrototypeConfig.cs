@@ -90,16 +90,17 @@ namespace JunkyWizard.Prototype
         [Tooltip("Max yaw from forward, both sides (degrees).")]
         public float wandMaxAngle = 60f;
         [Tooltip("Degrees per second when an arrow is first held.")]
-        public float wandStartSpeed = 15f;
+        public float wandStartSpeed = 60f;
         [Tooltip("Degrees per second cap.")]
-        public float wandMaxSpeed = 180f;
+        public float wandMaxSpeed = 200f;
         [Tooltip("Seconds of holding needed to reach wandMaxSpeed (wandAccel is derived from this).")]
-        public float wandTimeToMaxSpeed = 0.6f;
+        public float wandTimeToMaxSpeed = 0.5f;
 
         [Header("Pyro jet (Grid)")]
         public float pyroWidth = 1.5f;
-        public float pyroDurationBeats = 2f;
-        [Tooltip("Scales both width and duration.")]
+        [Tooltip("Jet duration from the Enter press; not scaled by the judgement.")]
+        public float pyroDurationSeconds = 3f;
+        [Tooltip("Scales the jet width only.")]
         public float pyroMultiplierPerfect = 1f;
         public float pyroMultiplierGood = 0.6f;
         public float pyroMultiplierMiss = 0.3f;

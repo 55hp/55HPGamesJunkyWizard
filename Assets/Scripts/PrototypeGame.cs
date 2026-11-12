@@ -53,7 +53,7 @@ namespace JunkyWizard.Prototype
 
         static readonly string[] GridDescriptions =
         {
-            "getto di fiamma lungo la bacchetta (più largo e lungo se lanciato a tempo)",
+            "getto di fiamma lungo la bacchetta per 3 s (più largo se lanciato a tempo)",
             LanesDescriptions[1],
             LanesDescriptions[2],
         };
@@ -208,12 +208,12 @@ namespace JunkyWizard.Prototype
             switch (spell)
             {
                 case Spell.Pyro when mode == GameplayMode.Grid:
-                    // Judgement scales width and duration. Not stackable: a recast replaces the running jet.
+                    // Judgement scales the width only; duration is fixed. Not stackable: a recast replaces the running jet.
                     float multiplier = judgement == Judgement.Perfect ? config.pyroMultiplierPerfect
                         : judgement == Judgement.Good ? config.pyroMultiplierGood
                         : config.pyroMultiplierMiss;
                     jetWidth = config.pyroWidth * multiplier;
-                    jetUntilBeat = clock.BeatAt(dsp) + config.pyroDurationBeats * multiplier;
+                    jetUntilBeat = clock.BeatAt(dsp + config.pyroDurationSeconds);
                     break;
 
                 case Spell.Pyro:

@@ -86,11 +86,11 @@ MonoBehaviour:
   wobbleAmplitude: 0.4
   wobbleFrequency: 0.5
   wandMaxAngle: 60
-  wandStartSpeed: 15
-  wandMaxSpeed: 180
-  wandTimeToMaxSpeed: 0.6
+  wandStartSpeed: 60
+  wandMaxSpeed: 200
+  wandTimeToMaxSpeed: 0.5
   pyroWidth: 1.5
-  pyroDurationBeats: 2
+  pyroDurationSeconds: 3
   pyroMultiplierPerfect: 1
   pyroMultiplierGood: 0.6
   pyroMultiplierMiss: 0.3
