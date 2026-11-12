@@ -29,6 +29,7 @@ namespace JunkyWizard.Prototype
         InputAction upAction;
         InputAction downAction;
         InputAction tabAction;
+        InputAction escapeAction;
         Keyboard textKeyboard;
 
         int lives;
@@ -91,6 +92,7 @@ namespace JunkyWizard.Prototype
             upAction = CreateAction("Up", "<Keyboard>/upArrow", ctx => OnPageKey(ctx, -1));
             downAction = CreateAction("Down", "<Keyboard>/downArrow", ctx => OnPageKey(ctx, +1));
             tabAction = CreateAction("Tab", "<Keyboard>/tab", _ => manualOpen = !manualOpen);
+            escapeAction = CreateAction("Escape", "<Keyboard>/escape", _ => GameSession.LoadBoot());
         }
 
         void Start()
@@ -107,6 +109,7 @@ namespace JunkyWizard.Prototype
             upAction.Enable();
             downAction.Enable();
             tabAction.Enable();
+            escapeAction.Enable();
 
             BindTextKeyboard();
             if (logInput)
@@ -122,6 +125,7 @@ namespace JunkyWizard.Prototype
             upAction.Disable();
             downAction.Disable();
             tabAction.Disable();
+            escapeAction.Disable();
             Cursor.visible = true;
 
             UnbindTextKeyboard();
@@ -136,6 +140,7 @@ namespace JunkyWizard.Prototype
             upAction.Dispose();
             downAction.Dispose();
             tabAction.Dispose();
+            escapeAction.Dispose();
         }
 
         void Update()
@@ -383,7 +388,7 @@ namespace JunkyWizard.Prototype
 
         void RestartRound()
         {
-            mode = config.gameplayMode;
+            mode = GameSession.SelectedMode ?? config.gameplayMode;
             world.Clear();
             world.SetMode(mode);
             hud.SetMode(mode, IsGridMode ? GridDescriptions : LanesDescriptions);
