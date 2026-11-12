@@ -62,6 +62,7 @@ namespace JunkyWizard.Prototype
 
         bool ShieldActive => clock.BeatPosition < shieldUntilBeat;
         bool JetActive => clock.BeatPosition < jetUntilBeat;
+        bool IsGridMode => mode != GameplayMode.Lanes;
 
         void Awake()
         {
@@ -121,6 +122,7 @@ namespace JunkyWizard.Prototype
             upAction.Disable();
             downAction.Disable();
             tabAction.Disable();
+            Cursor.visible = true;
 
             UnbindTextKeyboard();
         }
@@ -142,9 +144,11 @@ namespace JunkyWizard.Prototype
             if (Keyboard.current != textKeyboard) BindTextKeyboard();
 
             double visualBeat = clock.VisualBeatPosition;
-            if (mode == GameplayMode.Grid) UpdateGrid(visualBeat);
+            if (IsGridMode) UpdateGrid(visualBeat);
             world.Tick(selectedLane, manualOpen, ShieldActive, visualBeat, enemyViews);
             hud.Tick(visualBeat, lives, selectedLane, manualOpen, manualOpen, manualPage, typer.IsOpen, typer.Buffer);
+            var mouse = Mouse.current;
+            hud.SetCrosshair(mode == GameplayMode.GridMouse && mouse != null, mouse != null ? mouse.position.ReadValue() : Vector2.zero);
         }
 
         InputAction CreateAction(string name, string binding, Action<InputAction.CallbackContext> onPerformed)
@@ -191,7 +195,7 @@ namespace JunkyWizard.Prototype
         /// <summary>Left/right: lane or page in Lanes mode; no discrete function in Grid (they drive the wand in UpdateGrid).</summary>
         void OnArrow(InputAction.CallbackContext ctx, int direction)
         {
-            if (mode == GameplayMode.Grid) return;
+            if (IsGridMode) return;
 
             if (!manualOpen)
             {
@@ -205,7 +209,7 @@ namespace JunkyWizard.Prototype
         /// <summary>Up/down: previous/next page, Grid mode with the manual open only.</summary>
         void OnPageKey(InputAction.CallbackContext ctx, int direction)
         {
-            if (mode != GameplayMode.Grid || !manualOpen) return;
+            if (!IsGridMode || !manualOpen) return;
             TurnPage(ctx, direction, direction < 0 ? "Page ↑" : "Page ↓");
         }
 
@@ -231,7 +235,7 @@ namespace JunkyWizard.Prototype
         {
             switch (spell)
             {
-                case Spell.Pyro when mode == GameplayMode.Grid:
+                case Spell.Pyro when IsGridMode:
                     // Judgement scales the width only; duration is fixed. Not stackable: a recast replaces the running jet.
                     float multiplier = judgement == Judgement.Perfect ? config.pyroMultiplierPerfect
                         : judgement == Judgement.Good ? config.pyroMultiplierGood
@@ -269,7 +273,7 @@ namespace JunkyWizard.Prototype
 
         void HandleBeat(int beat)
         {
-            if (mode == GameplayMode.Grid)
+            if (IsGridMode)
             {
                 if (gridEnemies.OnBeat(beat, enemy => ResolveStrike(enemy, beat))) return; // round restarted
             }
@@ -287,18 +291,25 @@ namespace JunkyWizard.Prototype
 
             if (beat >= nextSpawnBeat)
             {
-                if (mode == GameplayMode.Grid) gridEnemies.TrySpawn(beat);
+                if (IsGridMode) gridEnemies.TrySpawn(beat);
                 else TrySpawnEnemy(beat);
                 nextSpawnBeat = beat + SpawnIntervalAt(beat);
             }
         }
 
-        /// <summary>Grid mode per-frame: wand from held arrows, enemy visuals, pyro jet hits.</summary>
+        /// <summary>Grid modes per-frame: wand (held arrows or mouse), enemy visuals and strikes, pyro jet hits.</summary>
         void UpdateGrid(double visualBeat)
         {
-            // Always free: also with the manual or the typing buffer open.
-            int direction = (rightAction.IsPressed() ? 1 : 0) - (leftAction.IsPressed() ? 1 : 0);
-            wand.Update(direction, Time.deltaTime);
+            if (mode == GameplayMode.GridMouse)
+            {
+                if (TryGetMouseWandAngle(out float angle)) wand.SetAngle(angle);
+            }
+            else
+            {
+                // Always free: also with the manual or the typing buffer open.
+                int direction = (rightAction.IsPressed() ? 1 : 0) - (leftAction.IsPressed() ? 1 : 0);
+                wand.Update(direction, Time.deltaTime);
+            }
             world.SetWand(wand.Angle);
 
             if (gridEnemies.Tick(visualBeat, enemy => ResolveStrike(enemy, clock.BeatPosition))) return; // round restarted
@@ -307,6 +318,22 @@ namespace JunkyWizard.Prototype
             world.SetJet(jetActive, jetWidth);
             if (jetActive)
                 gridEnemies.KillInJet(world.WandTip, world.WandDirection, world.JetLength, jetWidth * 0.5f);
+        }
+
+        /// <summary>Yaw (degrees) from the wand pivot to the ground point under the cursor; false if the cursor ray misses the ground.</summary>
+        bool TryGetMouseWandAngle(out float angle)
+        {
+            angle = 0f;
+            var mouse = Mouse.current;
+            var camera = Camera.main;
+            if (mouse == null || camera == null) return false;
+
+            var ray = camera.ScreenPointToRay(mouse.position.ReadValue());
+            if (!new Plane(Vector3.up, Vector3.zero).Raycast(ray, out float distance)) return false;
+
+            var toPoint = ray.GetPoint(distance) - world.WandPivotPosition;
+            angle = Mathf.Atan2(toPoint.x, toPoint.z) * Mathf.Rad2Deg;
+            return true;
         }
 
         /// <returns>True if the strike killed the wizard and the round restarted.</returns>
@@ -359,7 +386,8 @@ namespace JunkyWizard.Prototype
             mode = config.gameplayMode;
             world.Clear();
             world.SetMode(mode);
-            hud.SetMode(mode, mode == GameplayMode.Grid ? GridDescriptions : LanesDescriptions);
+            hud.SetMode(mode, IsGridMode ? GridDescriptions : LanesDescriptions);
+            Cursor.visible = mode != GameplayMode.GridMouse; // the HUD crosshair replaces it
             Array.Clear(enemyViews, 0, enemyViews.Length);
             gridEnemies.Clear();
             wand.Reset();

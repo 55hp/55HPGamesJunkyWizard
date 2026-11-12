@@ -24,6 +24,7 @@ namespace JunkyWizard.Prototype
         Text laneLabel;
         Text controlsText;
         Text manualHint;
+        RectTransform crosshair;
         Text bufferText;
         RectTransform manualPanel;
         Vector2 manualBasePosition;
@@ -97,6 +98,19 @@ namespace JunkyWizard.Prototype
             manualHint = CreateText("Hint", manualPanel, new Vector2(0.5f, 0f), new Vector2(0f, 30f), new Vector2(460f, 30f), 18,
                 TextAnchor.MiddleCenter);
             manualPanel.gameObject.SetActive(false);
+
+            // Mouse-mode crosshair: ring + centre dot, follows the cursor.
+            crosshair = CreateImage("Crosshair", root, Vector2.zero, Vector2.zero, new Vector2(36f, 36f),
+                new Color(1f, 1f, 1f, 0.35f), circleSprite).rectTransform;
+            CreateImage("Dot", crosshair, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(8f, 8f), Color.white, circleSprite);
+            crosshair.gameObject.SetActive(false);
+        }
+
+        /// <param name="screenPosition">Cursor position in screen pixels (overlay canvas uses screen space directly).</param>
+        public void SetCrosshair(bool visible, Vector2 screenPosition)
+        {
+            crosshair.gameObject.SetActive(visible);
+            if (visible) crosshair.position = screenPosition;
         }
 
         /// <summary>Mode-specific HUD: lane indicator only in Lanes, controls reminder and manual texts.</summary>
@@ -107,7 +121,9 @@ namespace JunkyWizard.Prototype
             foreach (var cell in laneCells) cell.gameObject.SetActive(lanes);
 
             controlsText.text = "Spazio: apri magia  ·  lettere  ·  Invio: lancia\n"
-                + (lanes ? "←/→: corsia (manuale chiuso)" : "←/→ tenute: ruota bacchetta (sempre)")
+                + (lanes ? "←/→: corsia (manuale chiuso)"
+                    : mode == GameplayMode.GridMouse ? "Mouse: mira la bacchetta"
+                    : "←/→ tenute: ruota bacchetta (sempre)")
                 + (lanes ? "\nTab: manuale  ·  ←/→ a tempo: pagina" : "\nTab: manuale  ·  ↑/↓ a tempo: pagina");
             manualHint.text = lanes ? "← / → a tempo per girare pagina" : "↑ / ↓ a tempo per girare pagina";
             spellDescriptions = descriptions;

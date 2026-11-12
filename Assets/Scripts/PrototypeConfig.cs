@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace JunkyWizard.Prototype
 {
-    public enum GameplayMode { Lanes, Grid }
+    public enum GameplayMode { Lanes, Grid, GridMouse }
 
     /// <summary>All tunable numbers of the grey-box prototype.</summary>
     [CreateAssetMenu(menuName = "Junky Wizard/Prototype Config", fileName = "PrototypeConfig")]

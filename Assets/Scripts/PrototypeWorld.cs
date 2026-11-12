@@ -104,7 +104,7 @@ namespace JunkyWizard.Prototype
         /// <summary>Shows the objects of <paramref name="mode"/> and sizes ground and guides (called on round restart).</summary>
         public void SetMode(GameplayMode mode)
         {
-            bool grid = mode == GameplayMode.Grid;
+            bool grid = mode != GameplayMode.Lanes;
             lanesRoot.gameObject.SetActive(!grid);
             gridRoot.gameObject.SetActive(grid);
 
@@ -125,6 +125,7 @@ namespace JunkyWizard.Prototype
         /// <summary>Depth of the last grid row (m).</summary>
         public float GridDepth => config.gridRows * config.rowSpacing;
 
+        public Vector3 WandPivotPosition => wandPivot.position;
         public Vector3 WandTip => wandPivot.position + wandPivot.forward * WandReach;
         public Vector3 WandDirection => wandPivot.forward;
 

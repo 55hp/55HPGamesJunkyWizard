@@ -27,6 +27,12 @@ namespace JunkyWizard.Prototype
             heldDirection = 0;
         }
 
+        /// <summary>Direct control (mouse mode): no acceleration, no smoothing, clamped to ±wandMaxAngle.</summary>
+        public void SetAngle(float angle)
+        {
+            Angle = Mathf.Clamp(angle, -config.wandMaxAngle, config.wandMaxAngle);
+        }
+
         /// <param name="direction">-1 left, +1 right, 0 none (or both held).</param>
         public void Update(int direction, float deltaTime)
         {
