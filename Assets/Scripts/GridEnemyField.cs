@@ -55,13 +55,12 @@ namespace JunkyWizard.Prototype
         /// <returns>True if the round restarted (stop processing this beat).</returns>
         public bool OnBeat(int beat, Func<GameObject, bool> strike)
         {
-            // Entered row 0 on the previous beat and visually arrived now.
+            // Normally a row-0 enemy strikes in Tick, the frame its final leg visually ends (= this beat).
+            // Fallback for the rare frame where the dsp beat fires before the smoothed visual clock gets there.
             for (int i = enemies.Count - 1; i >= 0; i--)
             {
-                var enemy = enemies[i];
-                if (enemy.Row != 0) continue;
-                enemies.RemoveAt(i);
-                if (strike(enemy.View)) return true;
+                if (enemies[i].Row != 0) continue;
+                if (StrikeAt(i, strike)) return true;
             }
 
             // Front rows first, so followers can step into cells freed this beat.
@@ -107,14 +106,28 @@ namespace JunkyWizard.Prototype
             });
         }
 
-        /// <summary>Per-frame visuals: interpolation with overshoot, lateral wobble, colour by distance.</summary>
-        public void Tick(double visualBeat)
+        /// <summary>
+        /// Per-frame visuals: interpolation with overshoot, lateral wobble, colour by distance.
+        /// The final leg into row 0 is linear (never passes the wizard) and the enemy strikes the
+        /// frame it visually reaches the wizard row; until then it stays on the field and can be killed.
+        /// </summary>
+        /// <returns>True if a strike restarted the round.</returns>
+        public bool Tick(double visualBeat, Func<GameObject, bool> strike)
         {
             float wobbleAngle = (float)(visualBeat * config.wobbleFrequency % 1.0) * 2f * Mathf.PI;
-            foreach (var enemy in enemies)
+            for (int i = enemies.Count - 1; i >= 0; i--)
             {
+                var enemy = enemies[i];
                 float t = Mathf.Clamp01((float)(visualBeat - enemy.MoveBeat));
-                var position = Vector3.LerpUnclamped(enemy.From, enemy.To, config.moveCurve.Evaluate(t));
+                bool finalLeg = enemy.Row == 0;
+                if (finalLeg && t >= 1f)
+                {
+                    if (StrikeAt(i, strike)) return true;
+                    continue;
+                }
+
+                float progress = finalLeg ? t : config.moveCurve.Evaluate(t);
+                var position = Vector3.LerpUnclamped(enemy.From, enemy.To, progress);
                 position.x += config.wobbleAmplitude * Mathf.Sin(wobbleAngle + enemy.WobblePhase);
                 enemy.VisualPosition = position;
                 enemy.View.transform.position = position;
@@ -123,6 +136,15 @@ namespace JunkyWizard.Prototype
                 float danger = Mathf.InverseLerp(config.gridRows, 1f, visualRow);
                 enemy.Renderer.material.color = Color.Lerp(FarColor, NearColor, danger);
             }
+            return false;
+        }
+
+        /// <summary>Removes the enemy at <paramref name="index"/> and resolves its strike.</summary>
+        bool StrikeAt(int index, Func<GameObject, bool> strike)
+        {
+            var enemy = enemies[index];
+            enemies.RemoveAt(index);
+            return strike(enemy.View);
         }
 
         /// <summary>Kills every enemy whose hitbox (visual position, enemyHitRadius) touches the jet.</summary>

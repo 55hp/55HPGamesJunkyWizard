@@ -301,7 +301,7 @@ namespace JunkyWizard.Prototype
             wand.Update(direction, Time.deltaTime);
             world.SetWand(wand.Angle);
 
-            gridEnemies.Tick(visualBeat);
+            if (gridEnemies.Tick(visualBeat, enemy => ResolveStrike(enemy, clock.BeatPosition))) return; // round restarted
 
             bool jetActive = JetActive;
             world.SetJet(jetActive, jetWidth);
@@ -310,7 +310,7 @@ namespace JunkyWizard.Prototype
         }
 
         /// <returns>True if the strike killed the wizard and the round restarted.</returns>
-        bool ResolveStrike(GameObject enemy, int beat)
+        bool ResolveStrike(GameObject enemy, double beat)
         {
             if (beat < shieldUntilBeat)
             {
