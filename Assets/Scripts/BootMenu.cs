@@ -7,17 +7,12 @@ using UnityEngine.UI;
 namespace JunkyWizard.Prototype
 {
     /// <summary>
-    /// Grey-box boot menu built from code: pick GridV3 or SingleLane with the mouse or 1 / 2; H toggles
-    /// half-beat letters (both modes).
-    /// Lanes / Grid / GridMouse are no longer listed (their code stays).
+    /// Grey-box boot menu built from code (v4): Lanes1to5 only, the mouse or keys 1–5 pick the lane count;
+    /// H toggles half-beat letters. Older modes are no longer listed (their code stays).
     /// </summary>
     public class BootMenu : MonoBehaviour
     {
-        static readonly (string label, GameplayMode mode)[] Entries =
-        {
-            ("1   Grid v3 — lettere a tempo", GameplayMode.GridV3),
-            ("2   Corsia singola", GameplayMode.SingleLane),
-        };
+        const int MaxLanes = 5;
 
         [Tooltip("Initial value of the half-beat toggle.")]
         [SerializeField] PrototypeConfig config = null;
@@ -51,14 +46,16 @@ namespace JunkyWizard.Prototype
 
             CreateText("Title", root, new Vector2(0f, 260f), new Vector2(1200f, 100f), 64).text = "JUNKY WIZARD — prototipo";
             CreateText("Hint", root, new Vector2(0f, -300f), new Vector2(1200f, 40f), 24).text =
-                "Clic o tasti 1 / 2 per giocare  ·  H: mezzi beat  ·  in gioco Esc torna qui";
+                "Clic o tasti 1–5: numero di corsie  ·  H: mezzi beat  ·  in gioco Esc torna qui";
+            CreateText("Subtitle", root, new Vector2(0f, 150f), new Vector2(1200f, 50f), 32).text = "Corsie 1–5";
 
-            for (int i = 0; i < Entries.Length; i++)
+            for (int lanes = 1; lanes <= MaxLanes; lanes++)
             {
-                var mode = Entries[i].mode;
-                CreateButton(Entries[i].label, root, new Vector2(0f, 110f - i * 130f), () => GameSession.StartPrototype(mode));
+                int count = lanes;
+                CreateButton($"{lanes}   {(lanes == 1 ? "corsia" : "corsie")}", root,
+                    new Vector2((lanes - 3) * 240f, 40f), new Vector2(210f, 100f), () => GameSession.StartLanes(count));
             }
-            halfBeatLabel = CreateButton("", root, new Vector2(0f, 110f - Entries.Length * 130f), ToggleHalfBeat);
+            halfBeatLabel = CreateButton("", root, new Vector2(0f, -120f), new Vector2(560f, 100f), ToggleHalfBeat);
             RefreshHalfBeatLabel();
         }
 
@@ -75,24 +72,25 @@ namespace JunkyWizard.Prototype
         {
             var keyboard = Keyboard.current;
             if (keyboard == null) return;
-            if (keyboard.digit1Key.wasPressedThisFrame || keyboard.numpad1Key.wasPressedThisFrame)
-                GameSession.StartPrototype(Entries[0].mode);
-            else if (keyboard.digit2Key.wasPressedThisFrame || keyboard.numpad2Key.wasPressedThisFrame)
-                GameSession.StartPrototype(Entries[1].mode);
+            if (keyboard.digit1Key.wasPressedThisFrame || keyboard.numpad1Key.wasPressedThisFrame) GameSession.StartLanes(1);
+            else if (keyboard.digit2Key.wasPressedThisFrame || keyboard.numpad2Key.wasPressedThisFrame) GameSession.StartLanes(2);
+            else if (keyboard.digit3Key.wasPressedThisFrame || keyboard.numpad3Key.wasPressedThisFrame) GameSession.StartLanes(3);
+            else if (keyboard.digit4Key.wasPressedThisFrame || keyboard.numpad4Key.wasPressedThisFrame) GameSession.StartLanes(4);
+            else if (keyboard.digit5Key.wasPressedThisFrame || keyboard.numpad5Key.wasPressedThisFrame) GameSession.StartLanes(5);
             else if (keyboard.hKey.wasPressedThisFrame)
                 ToggleHalfBeat();
         }
 
-        Text CreateButton(string label, Transform parent, Vector2 position, UnityEngine.Events.UnityAction onClick)
+        Text CreateButton(string label, Transform parent, Vector2 position, Vector2 size, UnityEngine.Events.UnityAction onClick)
         {
-            var rect = CreateRect(label, parent, position, new Vector2(560f, 100f));
+            var rect = CreateRect(label, parent, position, size);
             var image = rect.gameObject.AddComponent<Image>();
             image.color = new Color(0.3f, 0.3f, 0.34f);
             var button = rect.gameObject.AddComponent<Button>();
             button.targetGraphic = image;
             button.onClick.AddListener(onClick);
 
-            var text = CreateText("Label", rect, Vector2.zero, new Vector2(540f, 100f), 40);
+            var text = CreateText("Label", rect, Vector2.zero, size - new Vector2(20f, 0f), 40);
             text.text = label;
             text.raycastTarget = false;
             return text;
