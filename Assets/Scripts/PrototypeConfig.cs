@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace JunkyWizard.Prototype
 {
-    public enum GameplayMode { Lanes, Grid, GridMouse }
+    public enum GameplayMode { Lanes, Grid, GridMouse, GridV3 }
 
     /// <summary>All tunable numbers of the grey-box prototype.</summary>
     [CreateAssetMenu(menuName = "Junky Wizard/Prototype Config", fileName = "PrototypeConfig")]
@@ -104,6 +104,40 @@ namespace JunkyWizard.Prototype
         public float pyroMultiplierPerfect = 1f;
         public float pyroMultiplierGood = 0.6f;
         public float pyroMultiplierMiss = 0.3f;
+
+        [Header("GridV3: enemies (one cell per bar)")]
+        [Tooltip("Bar (4 beats) on which the first enemy can spawn.")]
+        public int v3FirstSpawnBar = 2;
+        public int v3SpawnIntervalStartBars = 4;
+        public int v3SpawnIntervalEndBars = 1;
+        [Tooltip("Song time (s) over which the spawn interval ramps linearly from start to end (in bars).")]
+        public float v3SpawnRampSeconds = 180f;
+        public float intentWeightForward = 1f;
+        public float intentWeightForwardRight = 1f;
+        public float intentWeightForwardLeft = 1f;
+
+        [Header("GridV3: timed letters")]
+        [Tooltip("Letters also count as on time when close to a half beat.")]
+        public bool allowHalfBeatLetters = false;
+        [Tooltip("Typing one letter more than this makes the buffer explode.")]
+        public int maxLetters = 10;
+        [Tooltip("Black overlay (80%) fade-out after a buffer explosion.")]
+        public float explosionDarkSeconds = 4f;
+        [Tooltip("Visual disturbance per cursed letter, added at cast time.")]
+        public float cursedEffectSeconds = 3f;
+
+        [Header("GridV3: arrow cast (power = precision x multiplier)")]
+        public float castMultiplierPerfect = 1f;
+        public float castMultiplierGood = 0.6f;
+        public float castMultiplierMiss = 0.3f;
+        [Tooltip("heal: +max(healMinLives, round(healLivesPerPower * power)).")]
+        public int healMinLives = 1;
+        public float healLivesPerPower = 2f;
+        [Tooltip("aegis: duration max(aegisMinBeats, round(aegisBeatsPerPower * power)) beats.")]
+        public int aegisMinBeats = 4;
+        public float aegisBeatsPerPower = 16f;
+        [Tooltip("Hits absorbed by a powered aegis (normal: 1).")]
+        public int aegisPoweredCharges = 2;
 
         public int LaneCount => laneX.Length;
 

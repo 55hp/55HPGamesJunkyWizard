@@ -78,6 +78,19 @@ namespace JunkyWizard.Prototype
             return Judgement.Miss;
         }
 
+        /// <summary>
+        /// True if <paramref name="dspTimeInput"/> is within goodWindow of a beat
+        /// (or of a half beat when <paramref name="halfBeats"/> is set).
+        /// </summary>
+        /// <param name="errorSeconds">Signed distance from the nearest grid point (negative = early).</param>
+        public bool IsOnGrid(double dspTimeInput, bool halfBeats, out double errorSeconds)
+        {
+            double subdivisions = halfBeats ? 2.0 : 1.0;
+            double position = BeatAt(dspTimeInput) * subdivisions;
+            errorSeconds = (position - Math.Round(position)) * SecondsPerBeat / subdivisions;
+            return Math.Abs(errorSeconds) <= config.goodWindow;
+        }
+
         void Update()
         {
             mapper.Sample();

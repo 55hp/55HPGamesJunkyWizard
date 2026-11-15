@@ -38,8 +38,8 @@ MonoBehaviour:
   pyroWord: pyro
   healWord: heal
   aegisWord: aegis
-  gameplayMode: 1
-  gridRows: 12
+  gameplayMode: 3
+  gridRows: 8
   rowSpacing: 2
   showGridGuides: 0
   spawnWeightBack: 50
