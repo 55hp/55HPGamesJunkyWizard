@@ -26,6 +26,9 @@ namespace JunkyWizard.Prototype
         Text manualHint;
         RectTransform crosshair;
         Text bufferText;
+        Text counterText;
+        Image darkOverlay;
+        RawImage noiseOverlay;
         RectTransform manualPanel;
         Vector2 manualBasePosition;
         Text manualTitle;
@@ -52,6 +55,16 @@ namespace JunkyWizard.Prototype
             scaler.matchWidthOrHeight = 0.5f;
             var root = canvasGo.transform;
 
+            // Full-screen overlays first, so the HUD stays drawn above them.
+            darkOverlay = CreateImage("Darkness", root, Vector2.zero, Vector2.zero, Vector2.zero, Color.clear, null);
+            Stretch(darkOverlay.rectTransform);
+            noiseOverlay = new GameObject("CursedNoise", typeof(RectTransform), typeof(RawImage)).GetComponent<RawImage>();
+            noiseOverlay.transform.SetParent(root, false);
+            Stretch(noiseOverlay.rectTransform);
+            noiseOverlay.texture = CreateNoiseTexture(96);
+            noiseOverlay.raycastTarget = false;
+            noiseOverlay.enabled = false;
+
             // Beat circle (bottom centre) with a faint static ring as reference.
             var ring = CreateImage("BeatRing", root, new Vector2(0.5f, 0f), new Vector2(0f, 130f), new Vector2(170f, 170f),
                 new Color(1f, 1f, 1f, 0.12f), circleSprite);
@@ -62,6 +75,8 @@ namespace JunkyWizard.Prototype
 
             // Typing buffer, above the beat circle.
             bufferText = CreateText("Buffer", root, new Vector2(0.5f, 0f), new Vector2(0f, 270f), new Vector2(800f, 80f), 56,
+                TextAnchor.MiddleCenter);
+            counterText = CreateText("LetterCounter", root, new Vector2(0.5f, 0f), new Vector2(0f, 320f), new Vector2(300f, 36f), 26,
                 TextAnchor.MiddleCenter);
 
             // Lives (top left).
@@ -120,6 +135,16 @@ namespace JunkyWizard.Prototype
             laneLabel.gameObject.SetActive(lanes);
             foreach (var cell in laneCells) cell.gameObject.SetActive(lanes);
 
+            if (mode == GameplayMode.GridV3)
+            {
+                controlsText.text = "Lettere a tempo (fuori tempo = maledette)  ·  max 10\n"
+                    + "← ↑ →: lancia sulla colonna  ·  ↓: su di te\n"
+                    + "Spazio: manuale  ·  ←/→ a tempo: pagina  ·  Esc: menu";
+                manualHint.text = "← / → a tempo per girare pagina";
+                spellDescriptions = descriptions;
+                return;
+            }
+
             controlsText.text = "Spazio: apri magia  ·  lettere  ·  Invio: lancia\n"
                 + (lanes ? "←/→: corsia (manuale chiuso)"
                     : mode == GameplayMode.GridMouse ? "Mouse: mira la bacchetta"
@@ -130,7 +155,7 @@ namespace JunkyWizard.Prototype
         }
 
         public void Tick(double beatPosition, int lives, int selectedLane, bool laneLocked,
-            bool manualOpen, int manualPage, bool bufferOpen, string buffer)
+            bool manualOpen, int manualPage, string bufferLine, string counterLine = "")
         {
             float pulse = PrototypeWorld.Pulse(beatPosition);
             int beatInBar = (int)(((long)System.Math.Floor(beatPosition) % 4 + 4) % 4);
@@ -147,7 +172,8 @@ namespace JunkyWizard.Prototype
                 laneCells[i].color = i != selectedLane ? LaneOff : laneLocked ? LaneLocked : LaneOn;
             laneLabel.text = laneLocked ? "CORSIA (bloccata)" : "CORSIA";
 
-            bufferText.text = bufferOpen ? "> " + buffer + "_" : "";
+            bufferText.text = bufferLine;
+            counterText.text = counterLine;
 
             manualPanel.gameObject.SetActive(manualOpen);
             if (manualOpen)
@@ -158,6 +184,48 @@ namespace JunkyWizard.Prototype
                 manualWord.text = spellWords[manualPage];
                 manualDescription.text = spellDescriptions[manualPage];
             }
+        }
+
+        /// <param name="alpha">Black overlay opacity, 0 = hidden.</param>
+        public void SetDarkness(float alpha)
+        {
+            darkOverlay.color = new Color(0f, 0f, 0f, Mathf.Clamp01(alpha));
+        }
+
+        /// <param name="intensity">0 = off; roughly the number of active cursed-letter effects.</param>
+        public void SetCursedNoise(float intensity)
+        {
+            noiseOverlay.enabled = intensity > 0f;
+            if (intensity <= 0f) return;
+
+            // Jittered UVs every frame give the flicker; tinted towards the cursed purple.
+            noiseOverlay.uvRect = new Rect(Random.value, Random.value, 1.5f, 1.5f * 9f / 16f);
+            noiseOverlay.color = new Color(0.75f, 0.45f, 1f, Mathf.Clamp(0.12f * intensity, 0f, 0.6f));
+        }
+
+        static void Stretch(RectTransform rect)
+        {
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = rect.offsetMax = Vector2.zero;
+        }
+
+        static Texture2D CreateNoiseTexture(int size)
+        {
+            var texture = new Texture2D(size, size, TextureFormat.RGBA32, false)
+            {
+                wrapMode = TextureWrapMode.Repeat,
+                filterMode = FilterMode.Point,
+            };
+            var pixels = new Color[size * size];
+            for (int i = 0; i < pixels.Length; i++)
+            {
+                float v = Random.value;
+                pixels[i] = new Color(v, v, v, Random.value < 0.5f ? 1f : 0f);
+            }
+            texture.SetPixels(pixels);
+            texture.Apply();
+            return texture;
         }
 
         Image CreateImage(string name, Transform parent, Vector2 anchor, Vector2 position, Vector2 size, Color color, Sprite sprite)

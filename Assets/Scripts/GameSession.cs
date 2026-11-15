@@ -14,8 +14,16 @@ namespace JunkyWizard.Prototype
 
         public static GameplayMode? SelectedMode { get; private set; }
 
+        /// <summary>GridV3 half-beat letters toggled in the boot menu; null = use the config value.</summary>
+        public static bool? AllowHalfBeatLetters { get; set; }
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        static void ResetOnPlay() => SelectedMode = null; // in case domain reload is disabled
+        static void ResetOnPlay()
+        {
+            // In case domain reload is disabled.
+            SelectedMode = null;
+            AllowHalfBeatLetters = null;
+        }
 
         public static void StartPrototype(GameplayMode mode)
         {

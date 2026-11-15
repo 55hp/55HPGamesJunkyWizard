@@ -42,6 +42,7 @@ namespace JunkyWizard.Prototype
         int[] enemyHitBeats;
 
         GameplayMode mode;
+        bool delegated; // GridV3: everything runs in GridV3Game
         GridEnemyField gridEnemies;
         WandAim wand;
         double jetUntilBeat;
@@ -67,6 +68,15 @@ namespace JunkyWizard.Prototype
 
         void Awake()
         {
+            if ((GameSession.SelectedMode ?? config.gameplayMode) == GameplayMode.GridV3)
+            {
+                // GridV3 has its own controller; this component stays disabled and inert.
+                delegated = true;
+                enabled = false;
+                gameObject.AddComponent<GridV3Game>().Init(config, music, logJudgements, logInput);
+                return;
+            }
+
             clock = gameObject.AddComponent<BeatClock>();
             clock.Init(config, music);
             clock.OnBeat += HandleBeat;
@@ -102,6 +112,7 @@ namespace JunkyWizard.Prototype
 
         void OnEnable()
         {
+            if (delegated) return;
             spaceAction.Enable();
             enterAction.Enable();
             leftAction.Enable();
@@ -118,6 +129,7 @@ namespace JunkyWizard.Prototype
 
         void OnDisable()
         {
+            if (delegated) return;
             spaceAction.Disable();
             enterAction.Disable();
             leftAction.Disable();
@@ -133,6 +145,7 @@ namespace JunkyWizard.Prototype
 
         void OnDestroy()
         {
+            if (delegated) return;
             spaceAction.Dispose();
             enterAction.Dispose();
             leftAction.Dispose();
@@ -151,7 +164,8 @@ namespace JunkyWizard.Prototype
             double visualBeat = clock.VisualBeatPosition;
             if (IsGridMode) UpdateGrid(visualBeat);
             world.Tick(selectedLane, manualOpen, ShieldActive, visualBeat, enemyViews);
-            hud.Tick(visualBeat, lives, selectedLane, manualOpen, manualOpen, manualPage, typer.IsOpen, typer.Buffer);
+            hud.Tick(visualBeat, lives, selectedLane, manualOpen, manualOpen, manualPage,
+                typer.IsOpen ? "> " + typer.Buffer + "_" : "");
             var mouse = Mouse.current;
             hud.SetCrosshair(mode == GameplayMode.GridMouse && mouse != null, mouse != null ? mouse.position.ReadValue() : Vector2.zero);
         }
