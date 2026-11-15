@@ -27,6 +27,7 @@ namespace JunkyWizard.Prototype
         RectTransform crosshair;
         Text bufferText;
         Text counterText;
+        Text shieldText;
         Image darkOverlay;
         RawImage noiseOverlay;
         RectTransform manualPanel;
@@ -87,6 +88,10 @@ namespace JunkyWizard.Prototype
                 lifeCells[i] = CreateImage($"Life{i}", root, new Vector2(0f, 1f), new Vector2(60f + i * 46f, -95f),
                     new Vector2(38f, 38f), LifeFull, null);
 
+            // Shield charges (top left, under lives); empty outside Lanes1to5.
+            shieldText = CreateText("Shield", root, new Vector2(0f, 1f), new Vector2(160f, -145f), new Vector2(260f, 36f), 26,
+                TextAnchor.MiddleLeft);
+
             // Selected lane (top centre).
             laneLabel = CreateText("LaneLabel", root, new Vector2(0.5f, 1f), new Vector2(0f, -40f), new Vector2(400f, 36f), 24,
                 TextAnchor.MiddleCenter);
@@ -132,8 +137,21 @@ namespace JunkyWizard.Prototype
         public void SetMode(GameplayMode mode, string[] descriptions)
         {
             bool lanes = mode == GameplayMode.Lanes;
-            laneLabel.gameObject.SetActive(lanes);
-            foreach (var cell in laneCells) cell.gameObject.SetActive(lanes);
+            bool showLanes = lanes || mode == GameplayMode.Lanes1to5;
+            laneLabel.gameObject.SetActive(showLanes);
+            foreach (var cell in laneCells) cell.gameObject.SetActive(showLanes);
+            shieldText.text = "";
+            manualDescription.fontSize = mode == GameplayMode.Lanes1to5 ? 22 : 26; // v4 pages have 3 lines
+
+            if (mode == GameplayMode.Lanes1to5)
+            {
+                controlsText.text = "Lettere a tempo (fuori tempo = maledette)  ·  max 9\n"
+                    + "Invio / ↑: lancia sulla corsia  ·  Shift destro / ↓: su di te\n"
+                    + "← → a tempo: corsia  ·  Spazio: manuale (← → pagina)  ·  Esc: menu";
+                manualHint.text = "← / → a tempo per girare pagina";
+                spellDescriptions = descriptions;
+                return;
+            }
 
             if (mode == GameplayMode.SingleLane)
             {
@@ -194,6 +212,12 @@ namespace JunkyWizard.Prototype
                 manualWord.text = spellWords[manualPage];
                 manualDescription.text = spellDescriptions[manualPage];
             }
+        }
+
+        public void SetShieldCharges(int charges, int max)
+        {
+            shieldText.text = $"SCUDO  {charges}/{max}";
+            shieldText.color = charges > 0 ? new Color(0.4f, 0.85f, 1f) : new Color(0.6f, 0.6f, 0.65f);
         }
 
         /// <param name="alpha">Black overlay opacity, 0 = hidden.</param>

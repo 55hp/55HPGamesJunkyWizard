@@ -17,12 +17,22 @@ namespace JunkyWizard.Prototype
         /// <summary>GridV3 half-beat letters toggled in the boot menu; null = use the config value.</summary>
         public static bool? AllowHalfBeatLetters { get; set; }
 
+        /// <summary>Lanes1to5 lane count picked in the boot menu; null = config default.</summary>
+        public static int? LaneCount { get; private set; }
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         static void ResetOnPlay()
         {
             // In case domain reload is disabled.
             SelectedMode = null;
             AllowHalfBeatLetters = null;
+            LaneCount = null;
+        }
+
+        public static void StartLanes(int laneCount)
+        {
+            LaneCount = laneCount;
+            StartPrototype(GameplayMode.Lanes1to5);
         }
 
         public static void StartPrototype(GameplayMode mode)
