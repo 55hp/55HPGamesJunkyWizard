@@ -116,10 +116,14 @@ namespace JunkyWizard.Prototype
             guidesRoot = null;
             if (grid && config.showGridGuides) BuildGridGuides();
 
-            // GridV3 has no wand: arm, wand and aim line hidden.
-            bool wand = mode == GameplayMode.Grid || mode == GameplayMode.GridMouse;
-            wandPivot.gameObject.SetActive(wand);
-            aimLine.gameObject.SetActive(wand);
+            // GridV3 / SingleLane have no wand. Lanes1to5: wand as a visual pointer, no aim line.
+            bool aim = mode == GameplayMode.Grid || mode == GameplayMode.GridMouse;
+            wandPivot.gameObject.SetActive(aim || mode == GameplayMode.Lanes1to5);
+            aimLine.gameObject.SetActive(aim);
+            if (laneStripsRoot) Destroy(laneStripsRoot.gameObject);
+            laneStripsRoot = null;
+            laneHighlight = null;
+            SetShieldOrbs(0, 0.0);
 
             SetWand(0f);
             SetJet(false, 0f);
@@ -160,11 +164,90 @@ namespace JunkyWizard.Prototype
         }
 
         /// <summary>Pyro feedback: an orange column of fire along a grid column that fades out.</summary>
-        public void FlashColumn(int column)
+        public void FlashColumn(int column) => FlashLane(config.laneX[column], ColumnFlashColor);
+
+        /// <summary>Spell feedback: a coloured box along the lane at <paramref name="x"/> that fades out.</summary>
+        public void FlashLane(float x, Color color)
         {
             float depth = GridDepth + config.rowSpacing;
-            StartCoroutine(FadeBox(new Vector3(config.laneX[column], 0.8f, depth * 0.5f),
-                new Vector3(2f, 1.6f, depth), ColumnFlashColor, 0.35f));
+            StartCoroutine(FadeBox(new Vector3(x, 0.8f, depth * 0.5f), new Vector3(2f, 1.6f, depth), color, 0.35f));
+        }
+
+        // ---------------------------------------------------------------- Lanes1to5
+
+        static readonly Color LaneStripColor = new Color(0.5f, 0.5f, 0.53f);
+        static readonly Color LaneHighlightColor = new Color(0.95f, 0.8f, 0.2f);
+        static readonly Color ShieldOrbColor = new Color(0.3f, 0.8f, 1f);
+        const int ShieldOrbCount = 5;
+
+        Transform laneStripsRoot;
+        Transform laneHighlight;
+        Transform[] shieldOrbs;
+
+        /// <summary>Faint strips under each lane plus the selected-lane highlight (call after SetMode).</summary>
+        public void SetLaneLayout(float[] laneXs)
+        {
+            if (laneStripsRoot) Destroy(laneStripsRoot.gameObject);
+            laneStripsRoot = new GameObject("LaneStrips").transform;
+            laneStripsRoot.SetParent(transform, false);
+
+            float depth = GridDepth + config.rowSpacing;
+            foreach (float x in laneXs)
+            {
+                var strip = CreatePrimitive(PrimitiveType.Cube, "LaneStrip", laneStripsRoot, LaneStripColor);
+                strip.transform.position = new Vector3(x, 0.005f, depth * 0.5f);
+                strip.transform.localScale = new Vector3(0.06f, 0.01f, depth);
+            }
+
+            laneHighlight = CreatePrimitive(PrimitiveType.Cube, "LaneHighlight", laneStripsRoot, LaneHighlightColor).transform;
+            laneHighlight.localScale = new Vector3(2f, 0.01f, 1.2f);
+        }
+
+        /// <summary>Moves the highlight under the selected lane (wizard row) and points the wand at it.</summary>
+        public void SetSelectedLane(float x)
+        {
+            if (laneHighlight) laneHighlight.position = new Vector3(x, 0.01f, config.rowSpacing * 0.5f);
+
+            // Aim at the middle of the lane: the wand reads as pointing "down the lane".
+            var toLane = new Vector3(x, 0f, GridDepth * 0.5f) - wandPivot.position;
+            SetWand(Mathf.Atan2(toLane.x, toLane.z) * Mathf.Rad2Deg);
+        }
+
+        /// <summary>Shield charges: one small orb per charge orbiting the wizard.</summary>
+        public void SetShieldOrbs(int charges, double beatPosition)
+        {
+            if (shieldOrbs == null)
+            {
+                shieldOrbs = new Transform[ShieldOrbCount];
+                for (int i = 0; i < ShieldOrbCount; i++)
+                {
+                    var orb = CreatePrimitive(PrimitiveType.Sphere, $"ShieldOrb{i}", transform, ShieldOrbColor);
+                    orb.transform.localScale = Vector3.one * 0.32f;
+                    orb.GetComponent<Renderer>().shadowCastingMode = ShadowCastingMode.Off;
+                    shieldOrbs[i] = orb.transform;
+                }
+            }
+
+            int shown = Mathf.Min(charges, ShieldOrbCount);
+            float spin = (float)(beatPosition * 45.0); // degrees, an eighth of a turn per beat
+            for (int i = 0; i < ShieldOrbCount; i++)
+            {
+                bool active = i < shown;
+                shieldOrbs[i].gameObject.SetActive(active);
+                if (!active) continue;
+                float angle = (spin + i * 360f / Mathf.Max(1, shown)) * Mathf.Deg2Rad;
+                shieldOrbs[i].position = WizardPosition + new Vector3(Mathf.Cos(angle) * 1.1f, 0.4f, Mathf.Sin(angle) * 1.1f);
+            }
+        }
+
+        /// <summary>Proximity halo: a transparent disc on the ground under the enemy (scaled by the caller).</summary>
+        public Transform CreateProximityHalo(Transform enemy)
+        {
+            var halo = CreatePrimitive(PrimitiveType.Cylinder, "Halo", enemy, Color.clear, transparent: true);
+            halo.GetComponent<Renderer>().shadowCastingMode = ShadowCastingMode.Off;
+            // Enemy centre is 0.8 m above the ground; local units are divided by the enemy scale.
+            halo.transform.localPosition = new Vector3(0f, -0.78f / enemy.localScale.y, 0f);
+            return halo.transform;
         }
 
         IEnumerator FadeBox(Vector3 position, Vector3 scale, Color color, float duration)
@@ -209,10 +292,12 @@ namespace JunkyWizard.Prototype
             return enemy;
         }
 
-        public void KillEnemy(GameObject enemy)
+        public void KillEnemy(GameObject enemy) => KillEnemy(enemy, PyroColor);
+
+        public void KillEnemy(GameObject enemy, Color burstColor)
         {
             if (!enemy) return;
-            StartCoroutine(Burst(enemy.transform.position, PyroColor, 1.4f, 3f, 0.2f));
+            StartCoroutine(Burst(enemy.transform.position, burstColor, 1.4f, 3f, 0.2f));
             Destroy(enemy);
         }
 
