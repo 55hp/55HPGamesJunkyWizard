@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: PrototypeConfig
   m_EditorClassIdentifier: 
   bpm: 123
-  firstBeatOffset: 0.272
+  firstBeatOffset: 0.142
   scheduleLeadTime: 0.5
   perfectWindow: 0.045
   goodWindow: 0.09
@@ -38,7 +38,7 @@ MonoBehaviour:
   pyroWord: pyro
   healWord: heal
   aegisWord: aegis
-  gameplayMode: 3
+  gameplayMode: 5
   gridRows: 8
   rowSpacing: 2
   showGridGuides: 0

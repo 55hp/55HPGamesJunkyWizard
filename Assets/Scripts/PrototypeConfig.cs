@@ -2,7 +2,10 @@ using UnityEngine;
 
 namespace JunkyWizard.Prototype
 {
-    public enum GameplayMode { Lanes, Grid, GridMouse, GridV3, SingleLane }
+    public enum GameplayMode { Lanes, Grid, GridMouse, GridV3, SingleLane, Lanes1to5 }
+
+    /// <summary>Lanes1to5 enemy speed: one cell per bar, per beat or per half beat.</summary>
+    public enum EnemyStep { Bar, Beat, HalfBeat }
 
     /// <summary>All tunable numbers of the grey-box prototype.</summary>
     [CreateAssetMenu(menuName = "Junky Wizard/Prototype Config", fileName = "PrototypeConfig")]
@@ -11,7 +14,7 @@ namespace JunkyWizard.Prototype
         [Header("Beat clock")]
         public double bpm = 123.0;
         [Tooltip("Seconds from the start of the audio file to the first beat.")]
-        public double firstBeatOffset = 0.272;
+        public double firstBeatOffset = 0.142;
         [Tooltip("Delay between the PlayScheduled call and the actual audio start (s).")]
         public double scheduleLeadTime = 0.5;
 
@@ -139,7 +142,41 @@ namespace JunkyWizard.Prototype
         [Tooltip("Hits absorbed by a powered aegis (normal: 1).")]
         public int aegisPoweredCharges = 2;
 
+        [Header("Lanes1to5: field")]
+        [Tooltip("Lane count used when Prototype.unity is played directly (the boot menu picks 1-5).")]
+        [Range(1, 5)] public int v4DefaultLaneCount = 3;
+        [Tooltip("Distance between lane centres (m).")]
+        public float v4LaneSpacing = 3f;
+        public EnemyStep enemyStep = EnemyStep.Bar;
+
+        [Header("Lanes1to5: buffer")]
+        [Tooltip("Typing one letter more than this makes the buffer explode.")]
+        public int v4MaxLetters = 9;
+
+        [Header("Lanes1to5: enemy resistances (weights)")]
+        public float resistWeightNone = 40f;
+        public float resistWeightFire = 20f;
+        public float resistWeightIce = 20f;
+        public float resistWeightWind = 20f;
+
+        [Header("Lanes1to5: shield charges")]
+        public int shieldStartCharges = 1;
+        public int shieldMaxCharges = 5;
+
+        [Header("Lanes1to5: unlocked spells per lane count (space separated, index = lanes - 1)")]
+        public string[] spellsUnlockedByLaneCount =
+        {
+            "pyro kryo aero pyropyro kryokryo aeroaero iasis aegis",
+            "pyro kryo aero pyropyro kryokryo aeroaero pyrsos krymos anemos iasis aegis",
+            "pyro kryo aero pyropyro kryokryo aeroaero pyrsos krymos anemos pyrkaia kryeros thyella iasis panakeia aegis",
+            "pyro kryo aero pyropyro kryokryo aeroaero pyrsos krymos anemos pyrkaia kryeros thyella iasis panakeia aegis",
+            "pyro kryo aero pyropyro kryokryo aeroaero pyrsos krymos anemos pyrkaia kryeros thyella iasis panakeia aegis",
+        };
+
         public int LaneCount => laneX.Length;
+
+        /// <summary>Beats per enemy step in Lanes1to5.</summary>
+        public double EnemyStepBeats => enemyStep == EnemyStep.Bar ? 4.0 : enemyStep == EnemyStep.Beat ? 1.0 : 0.5;
 
         /// <summary>Exponent of speed = min(max, start * exp(accel * holdTime)), so that max is reached at wandTimeToMaxSpeed.</summary>
         public float WandAccel => Mathf.Log(wandMaxSpeed / wandStartSpeed) / Mathf.Max(0.01f, wandTimeToMaxSpeed);
