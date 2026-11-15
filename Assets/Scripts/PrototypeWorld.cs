@@ -116,8 +116,70 @@ namespace JunkyWizard.Prototype
             guidesRoot = null;
             if (grid && config.showGridGuides) BuildGridGuides();
 
+            // GridV3 has no wand: arm, wand and aim line hidden.
+            bool wand = mode == GameplayMode.Grid || mode == GameplayMode.GridMouse;
+            wandPivot.gameObject.SetActive(wand);
+            aimLine.gameObject.SetActive(wand);
+
             SetWand(0f);
             SetJet(false, 0f);
+        }
+
+        // ---------------------------------------------------------------- GridV3
+
+        static readonly Color IntentColor = new Color(1f, 0.85f, 0.3f);
+        static readonly Color ColumnFlashColor = new Color(1f, 0.5f, 0.05f);
+
+        /// <summary>
+        /// Intent icon: an arrow drawn in the camera-facing plane (x-y), parented to the enemy so it
+        /// is destroyed with it. Point it with <see cref="SetIntentIcon"/>.
+        /// </summary>
+        public Transform CreateIntentIcon(Transform enemy)
+        {
+            var icon = new GameObject("Intent").transform;
+            icon.SetParent(enemy, false);
+            icon.localScale = Vector3.one / enemy.localScale.x; // undo the enemy scale
+
+            var shaft = CreatePrimitive(PrimitiveType.Cube, "Shaft", icon, IntentColor);
+            shaft.transform.localPosition = new Vector3(0f, -0.1f, 0f);
+            shaft.transform.localScale = new Vector3(0.12f, 0.6f, 0.05f);
+            shaft.GetComponent<Renderer>().shadowCastingMode = ShadowCastingMode.Off;
+
+            var head = CreatePrimitive(PrimitiveType.Cube, "Head", icon, IntentColor);
+            head.transform.localPosition = new Vector3(0f, 0.25f, 0f);
+            head.transform.localRotation = Quaternion.Euler(0f, 0f, 45f);
+            head.transform.localScale = new Vector3(0.3f, 0.3f, 0.05f);
+            head.GetComponent<Renderer>().shadowCastingMode = ShadowCastingMode.Off;
+            return icon;
+        }
+
+        /// <param name="side">0 = ↑ forward, +1 = ↗ forward-right, -1 = ↖ forward-left (player's right / left).</param>
+        public void SetIntentIcon(Transform icon, int side)
+        {
+            icon.rotation = Quaternion.Euler(0f, 0f, -45f * side);
+        }
+
+        /// <summary>Pyro feedback: an orange column of fire along a grid column that fades out.</summary>
+        public void FlashColumn(int column)
+        {
+            float depth = GridDepth + config.rowSpacing;
+            StartCoroutine(FadeBox(new Vector3(config.laneX[column], 0.8f, depth * 0.5f),
+                new Vector3(2f, 1.6f, depth), ColumnFlashColor, 0.35f));
+        }
+
+        IEnumerator FadeBox(Vector3 position, Vector3 scale, Color color, float duration)
+        {
+            var box = CreatePrimitive(PrimitiveType.Cube, "ColumnFlash", transientRoot, color, transparent: true);
+            box.transform.position = position;
+            box.transform.localScale = scale;
+            var material = box.GetComponent<Renderer>().material;
+            for (float t = 0f; t < 1f; t += Time.deltaTime / duration)
+            {
+                material.color = new Color(color.r, color.g, color.b, 0.6f * (1f - t));
+                yield return null;
+            }
+            Destroy(box);
+            Destroy(material);
         }
 
         // ---------------------------------------------------------------- grid mode
