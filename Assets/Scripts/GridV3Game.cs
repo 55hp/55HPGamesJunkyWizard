@@ -7,20 +7,32 @@ using UnityEngine.InputSystem.LowLevel;
 namespace JunkyWizard.Prototype
 {
     /// <summary>
-    /// GridV3 controller: free typing judged letter by letter on the beat, arrows cast the buffer
-    /// on a column (← ↑ →) or on the wizard (↓), enemies move one cell per bar showing their intent.
-    /// Added at runtime by <see cref="PrototypeGame"/> when the session mode is GridV3.
+    /// GridV3 / SingleLane controller: free typing judged letter by letter on the beat, enemies move one cell per bar.
+    /// GridV3: arrows cast the buffer on a column (← ↑ →) or on the wizard (↓); enemies show their intent.
+    /// SingleLane: centre column only, enemies always straight; Enter casts on the lane, right Shift on the wizard.
+    /// Added at runtime by <see cref="PrototypeGame"/> when the session mode is one of the two.
     /// </summary>
     public class GridV3Game : MonoBehaviour
     {
         const int Self = -1; // ↓ target
 
-        static readonly string[] Descriptions =
+        static readonly string[] GridDescriptions =
         {
             "uccide i nemici nella colonna scelta\n(potenziata: tutte le colonne)\nFrecce: ← ↑ →",
             "ripristina vite (potenziata: tutte)\nFreccia: ↓",
             "assorbe il prossimo colpo (potenziata: 2)\nFreccia: ↓",
         };
+
+        static readonly string[] SingleLaneDescriptions =
+        {
+            "uccide tutti i nemici nella corsia\nTasto: Invio",
+            "ripristina vite (potenziata: tutte)\nTasto: Shift destro",
+            "assorbe il prossimo colpo (potenziata: 2)\nTasto: Shift destro",
+        };
+
+        GameplayMode mode;
+        bool SingleLane => mode == GameplayMode.SingleLane;
+        string[] Descriptions => SingleLane ? SingleLaneDescriptions : GridDescriptions;
 
         PrototypeConfig config;
         bool logJudgements;
@@ -40,6 +52,8 @@ namespace JunkyWizard.Prototype
         InputAction rightAction;
         InputAction downAction;
         InputAction escapeAction;
+        InputAction enterAction;
+        InputAction rightShiftAction;
         Keyboard textKeyboard;
         Action<InputEventPtr, InputDevice> eventListener;
         double lastTextEventTime = -1.0;
@@ -59,9 +73,11 @@ namespace JunkyWizard.Prototype
 
         bool ShieldActive => shieldCharges > 0 && clock.BeatPosition < shieldUntilBeat;
 
-        public void Init(PrototypeConfig cfg, AudioClip music, bool logJudgements, bool logInput)
+        /// <param name="gameMode">GridV3 or SingleLane.</param>
+        public void Init(PrototypeConfig cfg, AudioClip music, bool logJudgements, bool logInput, GameplayMode gameMode)
         {
             config = cfg;
+            mode = gameMode;
             this.logJudgements = logJudgements;
             this.logInput = logInput;
             halfBeatLetters = GameSession.AllowHalfBeatLetters ?? config.allowHalfBeatLetters;
@@ -77,7 +93,7 @@ namespace JunkyWizard.Prototype
             hud = gameObject.AddComponent<PrototypeHud>();
             hud.Build(config.SpellWords, Descriptions, config.maxLives, config.LaneCount);
 
-            enemies = new IntentGridField(config, world);
+            enemies = new IntentGridField(config, world, SingleLane);
             letters = new TimedLetterBuffer(config.maxLetters);
 
             spaceAction = CreateAction("Space", "<Keyboard>/space", _ => manualOpen = !manualOpen);
@@ -86,6 +102,10 @@ namespace JunkyWizard.Prototype
             rightAction = CreateAction("Right", "<Keyboard>/rightArrow", ctx => OnArrow(ctx, config.LaneCount - 1, +1, "→"));
             downAction = CreateAction("Down", "<Keyboard>/downArrow", ctx => OnArrow(ctx, Self, 0, "↓"));
             escapeAction = CreateAction("Escape", "<Keyboard>/escape", _ => GameSession.LoadBoot());
+            // SingleLane casting keys. They produce no letters: Enter's '\r' is not a letter, Shift produces no text.
+            enterAction = CreateAction("Enter", "<Keyboard>/enter", ctx => OnSingleLaneCast(ctx, enemies.CenterColumn, "Invio"));
+            enterAction.AddBinding("<Keyboard>/numpadEnter");
+            rightShiftAction = CreateAction("RightShift", "<Keyboard>/rightShift", ctx => OnSingleLaneCast(ctx, Self, "Shift destro"));
             eventListener = OnInputEvent;
 
             var camera = Camera.main;
@@ -99,7 +119,7 @@ namespace JunkyWizard.Prototype
             initialized = true;
             OnEnable(); // AddComponent already ran OnEnable before Init
 
-            Debug.Log($"[GridV3] half-beat letters: {(halfBeatLetters ? "ON" : "OFF")}");
+            Debug.Log($"[GridV3] mode {mode}, half-beat letters: {(halfBeatLetters ? "ON" : "OFF")}");
         }
 
         void Start()
@@ -130,7 +150,8 @@ namespace JunkyWizard.Prototype
             foreach (var action in Actions) action.Dispose();
         }
 
-        InputAction[] Actions => new[] { spaceAction, leftAction, upAction, rightAction, downAction, escapeAction };
+        InputAction[] Actions => new[]
+            { spaceAction, leftAction, upAction, rightAction, downAction, escapeAction, enterAction, rightShiftAction };
 
         void Update()
         {
@@ -226,6 +247,21 @@ namespace JunkyWizard.Prototype
                 return;
             }
 
+            if (SingleLane) return; // arrows only turn pages in SingleLane
+            CastBuffer(dsp, target, label);
+        }
+
+        /// <summary>SingleLane: Enter casts on the lane, right Shift on the wizard. No cast with the manual open (as the GridV3 arrows).</summary>
+        void OnSingleLaneCast(InputAction.CallbackContext ctx, int target, string label)
+        {
+            if (!SingleLane || manualOpen) return;
+            CastBuffer(clock.InputTimeToDsp(ctx.time), target, label);
+        }
+
+        /// <summary>Judges the cast key, empties the buffer, applies the cursed backlash and the recognised spell.</summary>
+        /// <param name="target">Column index, or <see cref="Self"/>.</param>
+        void CastBuffer(double dsp, int target, string label)
+        {
             var judgement = Judge(dsp, "Cast " + label);
             if (letters.Count == 0) return;
 
@@ -266,7 +302,7 @@ namespace JunkyWizard.Prototype
             {
                 case Spell.Pyro:
                     if (target == Self) return false;
-                    if (spell.Powered)
+                    if (spell.Powered && !SingleLane) // SingleLane: powered pyro is the same as pyro
                     {
                         for (int column = 0; column < config.LaneCount; column++) world.FlashColumn(column);
                         enemies.KillAll();
@@ -383,8 +419,8 @@ namespace JunkyWizard.Prototype
         void RestartRound()
         {
             world.Clear();
-            world.SetMode(GameplayMode.GridV3);
-            hud.SetMode(GameplayMode.GridV3, Descriptions);
+            world.SetMode(mode);
+            hud.SetMode(mode, Descriptions);
             Cursor.visible = true;
             enemies.Clear();
             letters.Clear();

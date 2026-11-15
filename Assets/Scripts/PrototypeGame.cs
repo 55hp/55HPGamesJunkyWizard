@@ -42,7 +42,7 @@ namespace JunkyWizard.Prototype
         int[] enemyHitBeats;
 
         GameplayMode mode;
-        bool delegated; // GridV3: everything runs in GridV3Game
+        bool delegated; // GridV3 / SingleLane: everything runs in GridV3Game
         GridEnemyField gridEnemies;
         WandAim wand;
         double jetUntilBeat;
@@ -68,12 +68,13 @@ namespace JunkyWizard.Prototype
 
         void Awake()
         {
-            if ((GameSession.SelectedMode ?? config.gameplayMode) == GameplayMode.GridV3)
+            var startMode = GameSession.SelectedMode ?? config.gameplayMode;
+            if (startMode == GameplayMode.GridV3 || startMode == GameplayMode.SingleLane)
             {
-                // GridV3 has its own controller; this component stays disabled and inert.
+                // GridV3 / SingleLane have their own controller; this component stays disabled and inert.
                 delegated = true;
                 enabled = false;
-                gameObject.AddComponent<GridV3Game>().Init(config, music, logJudgements, logInput);
+                gameObject.AddComponent<GridV3Game>().Init(config, music, logJudgements, logInput, startMode);
                 return;
             }
 

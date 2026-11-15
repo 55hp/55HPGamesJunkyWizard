@@ -135,6 +135,16 @@ namespace JunkyWizard.Prototype
             laneLabel.gameObject.SetActive(lanes);
             foreach (var cell in laneCells) cell.gameObject.SetActive(lanes);
 
+            if (mode == GameplayMode.SingleLane)
+            {
+                controlsText.text = "Lettere a tempo (fuori tempo = maledette)  ·  max 10\n"
+                    + "Invio: lancia sulla corsia  ·  Shift destro: su di te\n"
+                    + "Spazio: manuale  ·  ←/→ a tempo: pagina  ·  Esc: menu";
+                manualHint.text = "← / → a tempo per girare pagina";
+                spellDescriptions = descriptions;
+                return;
+            }
+
             if (mode == GameplayMode.GridV3)
             {
                 controlsText.text = "Lettere a tempo (fuori tempo = maledette)  ·  max 10\n"
