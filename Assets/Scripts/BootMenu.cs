@@ -7,7 +7,8 @@ using UnityEngine.UI;
 namespace JunkyWizard.Prototype
 {
     /// <summary>
-    /// Grey-box boot menu built from code: start GridV3 with the mouse, 1 or Enter; H toggles half-beat letters.
+    /// Grey-box boot menu built from code: pick GridV3 or SingleLane with the mouse or 1 / 2; H toggles
+    /// half-beat letters (both modes).
     /// Lanes / Grid / GridMouse are no longer listed (their code stays).
     /// </summary>
     public class BootMenu : MonoBehaviour
@@ -15,6 +16,7 @@ namespace JunkyWizard.Prototype
         static readonly (string label, GameplayMode mode)[] Entries =
         {
             ("1   Grid v3 — lettere a tempo", GameplayMode.GridV3),
+            ("2   Corsia singola", GameplayMode.SingleLane),
         };
 
         [Tooltip("Initial value of the half-beat toggle.")]
@@ -49,7 +51,7 @@ namespace JunkyWizard.Prototype
 
             CreateText("Title", root, new Vector2(0f, 260f), new Vector2(1200f, 100f), 64).text = "JUNKY WIZARD — prototipo";
             CreateText("Hint", root, new Vector2(0f, -300f), new Vector2(1200f, 40f), 24).text =
-                "Clic, 1 o Invio per giocare  ·  H: mezzi beat  ·  in gioco Esc torna qui";
+                "Clic o tasti 1 / 2 per giocare  ·  H: mezzi beat  ·  in gioco Esc torna qui";
 
             for (int i = 0; i < Entries.Length; i++)
             {
@@ -73,9 +75,10 @@ namespace JunkyWizard.Prototype
         {
             var keyboard = Keyboard.current;
             if (keyboard == null) return;
-            if (keyboard.digit1Key.wasPressedThisFrame || keyboard.numpad1Key.wasPressedThisFrame
-                || keyboard.enterKey.wasPressedThisFrame || keyboard.numpadEnterKey.wasPressedThisFrame)
+            if (keyboard.digit1Key.wasPressedThisFrame || keyboard.numpad1Key.wasPressedThisFrame)
                 GameSession.StartPrototype(Entries[0].mode);
+            else if (keyboard.digit2Key.wasPressedThisFrame || keyboard.numpad2Key.wasPressedThisFrame)
+                GameSession.StartPrototype(Entries[1].mode);
             else if (keyboard.hKey.wasPressedThisFrame)
                 ToggleHalfBeat();
         }
