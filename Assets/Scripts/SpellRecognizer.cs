@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace JunkyWizard.Prototype
 {
     public struct RecognizedSpell
@@ -37,6 +39,31 @@ namespace JunkyWizard.Prototype
                 found = true;
             }
             return found;
+        }
+
+        /// <summary>
+        /// v4 recognition: best word that is a subsequence of the buffer. Precision = word letters / buffer letters;
+        /// ties go to the longer word, then to the earlier one. Doubles are plain words here ("pyropyro").
+        /// </summary>
+        /// <returns>False if no word is recognised.</returns>
+        public static bool TryRecognizeBest(string buffer, IReadOnlyList<string> words, out int index, out float precision)
+        {
+            index = -1;
+            precision = 0f;
+            if (string.IsNullOrEmpty(buffer)) return false;
+
+            for (int i = 0; i < words.Count; i++)
+            {
+                string word = words[i];
+                if (string.IsNullOrEmpty(word) || !IsSubsequence(word, buffer)) continue;
+
+                float p = (float)word.Length / buffer.Length;
+                bool better = index < 0 || p > precision || p == precision && word.Length > words[index].Length;
+                if (!better) continue;
+                index = i;
+                precision = p;
+            }
+            return index >= 0;
         }
 
         public static bool IsSubsequence(string pattern, string text)
