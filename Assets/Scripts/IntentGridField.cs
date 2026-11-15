@@ -39,14 +39,21 @@ namespace JunkyWizard.Prototype
         readonly PrototypeConfig config;
         readonly PrototypeWorld world;
         readonly List<Enemy> enemies = new List<Enemy>();
+        readonly bool singleLane;
 
-        public IntentGridField(PrototypeConfig config, PrototypeWorld world)
+        /// <param name="singleLane">SingleLane mode: centre column only, spawns from the back only,
+        /// always straight ahead, no intent icons.</param>
+        public IntentGridField(PrototypeConfig config, PrototypeWorld world, bool singleLane = false)
         {
             this.config = config;
             this.world = world;
+            this.singleLane = singleLane;
         }
 
         int Columns => config.LaneCount;
+
+        /// <summary>The only column used in SingleLane mode.</summary>
+        public int CenterColumn => config.LaneCount / 2;
 
         public static bool IsBarStart(int beat) => ((beat % BeatsPerBar) + BeatsPerBar) % BeatsPerBar == 0;
 
@@ -84,10 +91,15 @@ namespace JunkyWizard.Prototype
         public void TrySpawn(int beat)
         {
             float totalWeight = config.spawnWeightBack + config.spawnWeightSide;
-            bool side = totalWeight > 0f && Random.value * totalWeight < config.spawnWeightSide;
+            bool side = !singleLane && totalWeight > 0f && Random.value * totalWeight < config.spawnWeightSide;
 
             int column, row;
-            if (side)
+            if (singleLane)
+            {
+                column = CenterColumn;
+                row = config.gridRows;
+            }
+            else if (side)
             {
                 column = Random.value < 0.5f ? -1 : Columns;
                 row = Random.Range(Mathf.Clamp(config.sideSpawnMinRow, 1, config.gridRows), config.gridRows + 1);
@@ -111,7 +123,7 @@ namespace JunkyWizard.Prototype
                 WobblePhase = Random.Range(0f, 2f * Mathf.PI),
                 View = view,
                 Renderer = view.GetComponent<Renderer>(),
-                Icon = world.CreateIntentIcon(view.transform),
+                Icon = singleLane ? null : world.CreateIntentIcon(view.transform),
             };
             PickIntent(enemy);
             enemies.Add(enemy);
@@ -146,8 +158,11 @@ namespace JunkyWizard.Prototype
                 enemy.Renderer.material.color = Color.Lerp(FarColor, NearColor, danger);
 
                 // Icon stays upright above the head (the enemy cube itself is not rotated).
-                enemy.Icon.gameObject.SetActive(!finalLeg);
-                enemy.Icon.position = position + Vector3.up * IconHeight;
+                if (enemy.Icon != null)
+                {
+                    enemy.Icon.gameObject.SetActive(!finalLeg);
+                    enemy.Icon.position = position + Vector3.up * IconHeight;
+                }
             }
             return false;
         }
@@ -211,6 +226,12 @@ namespace JunkyWizard.Prototype
         /// </summary>
         void PickIntent(Enemy enemy)
         {
+            if (singleLane)
+            {
+                enemy.Intent = Intent.Forward;
+                return;
+            }
+
             float forward = IsValid(enemy, Intent.Forward) ? Mathf.Max(0f, config.intentWeightForward) : 0f;
             float right = IsValid(enemy, Intent.ForwardRight) ? Mathf.Max(0f, config.intentWeightForwardRight) : 0f;
             float left = IsValid(enemy, Intent.ForwardLeft) ? Mathf.Max(0f, config.intentWeightForwardLeft) : 0f;
